@@ -17,9 +17,10 @@ async def cmd_help(message: types.Message):
         "/time [city] - Local time (default: Server time)\n"
         "/weather [city] - Current weather or live location\n"
         "/forecast [city] - 5-day weather forecast\n"
+        "<b>🛡️ Admin Commands:</b>\n"
         "/photo - Send a random photo\n"
-        "/top - Server resource usage (top  lines)\n"
-        "/log - Recent activity (Admin only)\n\n"
-        "<i>Note: /log access is restricted to authorized IDs.</i>"
+        "/top - Server resource usage\n"
+        "/log - Recent activity\n\n"
+        "<i>Note: Admin commands are restricted to authorized IDs in .auth.</i>"
     )
     await message.answer(help_text, parse_mode="HTML")

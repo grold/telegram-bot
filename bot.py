@@ -4,6 +4,7 @@ from aiogram import Bot, Dispatcher
 from config import BOT_TOKEN
 from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log
 from middlewares.command_logging import InteractionLoggingMiddleware
+from middlewares.auth import AdminMiddleware
 
 async def main():
     logging.basicConfig(
@@ -18,6 +19,11 @@ async def main():
     interaction_logger = InteractionLoggingMiddleware()
     dp.message.middleware(interaction_logger)
     dp.inline_query.middleware(interaction_logger)
+
+    admin_middleware = AdminMiddleware()
+    log.router.message.middleware(admin_middleware)
+    photo.router.message.middleware(admin_middleware)
+    top.router.message.middleware(admin_middleware)
 
     # Register routers
     dp.include_router(inline.router) # Inline queries
