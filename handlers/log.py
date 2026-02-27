@@ -3,6 +3,7 @@ import asyncio
 import logging
 from aiogram import Router, types
 from aiogram.filters import Command
+from config import LOG_NUM_LINES
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -10,7 +11,6 @@ logger = logging.getLogger(__name__)
 AUTH_FILE = ".auth"
 
 LOG_FILE = "commands.log"
-NUM_LINES = 30
 
 def read_last_lines(filepath: str, num_lines: int) -> list[str]:
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -30,7 +30,7 @@ def get_authorized_users() -> set[int]:
 
 @router.message(Command("log"))
 async def cmd_log(message: types.Message):
-    """Sends the last 30 lines of the commands.log file."""
+    """Sends the last configured number of lines of the commands.log file."""
     authorized_users = get_authorized_users()
     
     if message.from_user.id not in authorized_users:
@@ -42,7 +42,7 @@ async def cmd_log(message: types.Message):
         return
 
     try:
-        last_lines = await asyncio.to_thread(read_last_lines, LOG_FILE, NUM_LINES)
+        last_lines = await asyncio.to_thread(read_last_lines, LOG_FILE, LOG_NUM_LINES)
         
         if not last_lines:
             await message.answer("Log file is empty.")
@@ -54,7 +54,7 @@ async def cmd_log(message: types.Message):
         if len(log_content) > 4000:
             log_content = log_content[-4000:]
             
-        await message.answer(f"<b>Last {min(len(last_lines), NUM_LINES)} Log Entries:</b>\n<pre>{log_content}</pre>", parse_mode="HTML")
+        await message.answer(f"<b>Last {min(len(last_lines), LOG_NUM_LINES)} Log Entries:</b>\n<pre>{log_content}</pre>", parse_mode="HTML")
         
     except Exception as e:
         await message.answer(f"Failed to read log file: {str(e)}")
