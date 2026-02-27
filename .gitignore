@@ -20,3 +20,9 @@ photos
 photos/
 screenshots/
 uv.lock
+
+# gemini-cli settings
+.gemini/
+
+# GitHub App credentials
+gha-creds-*.json
