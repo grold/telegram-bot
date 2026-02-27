@@ -58,3 +58,17 @@ Once everything is set up, start the bot by running:
 uv run python bot.py
 ```
 *(Or simply `python bot.py` if your virtual environment is activated)*
+
+## Testing
+
+The project uses `pytest` and `pytest-asyncio` for unit testing. The tests are located in the `tests/` directory.
+
+To run the entire test suite:
+```bash
+uv run pytest
+```
+
+To run a specific test file:
+```bash
+uv run pytest tests/test_start.py
+```
