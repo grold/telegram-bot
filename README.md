@@ -55,6 +55,17 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
    - Create a `photos/` directory and add `.jpg` or `.png` files to use the `/photo` command.
    - Create a `cities.txt` file (one city per line) to enable inline search autocompletion.
 
+## Tools
+
+The repository includes a `tools/` directory for useful utility scripts.
+
+**Populate Cities List:**
+To enable auto-completion for inline queries, the bot needs a `cities.txt` file. You can automatically generate a clean list of major world cities (population > 100,000) using the built-in script:
+```bash
+uv run python tools/populate_cities.py
+```
+This will download the latest data from Geonames, filter it, and output a ready-to-use `cities.txt` file in your project root.
+
 ## Usage
 
 Once everything is set up, start the bot by running:
