@@ -7,6 +7,7 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
 - **Weather (`/weather [city]`)**: Get the current weather for a specific city or by sharing your location. Powered by OpenWeatherMap.
 - **Forecast (`/forecast [city]`)**: Get a 5-day weather forecast (with 3-hour intervals for the first 24 hours). 
 - **Time (`/time [city]`)**: Look up the current local time and timezone for any given city, or check the server's local time.
+- **Log Viewer (`/log`)**: Displays the last 30 interactions from the bot's log file for quick monitoring without server access.
 - **Inline Queries**: Type `@<YourBotName> [city]` in any chat to instantly get the weather for that city. Includes auto-completion if `cities.txt` is populated.
 - **System Top (`/top`)**: Shows server resource usage utilizing the standard linux `top` command.
 - **Random Photos (`/photo`)**: Sends a randomly selected photo from the local `photos/` directory.

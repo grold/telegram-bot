@@ -15,6 +15,7 @@ async def cmd_help(message: types.Message):
         "/time [city] - Show current time in specified city (default: Server local time)\n"
         "/weather [city] - Show current weather for a city or your location\n"
         "/forecast [city] - Show 5-day weather forecast for a city or your location\n"
+        "/log - Show the last 30 log entries\n"
         "/top - Show system resource usage\n"
         "/photo - Send a random photo"
     )

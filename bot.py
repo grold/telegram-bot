@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from config import BOT_TOKEN
-from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline
+from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log
 from middlewares.command_logging import InteractionLoggingMiddleware
 
 async def main():
@@ -28,7 +28,8 @@ async def main():
     dp.include_router(photo.router)
     dp.include_router(forecast.router) # Forecast before weather
     dp.include_router(weather.router)
-    dp.include_router(group.router)
+    dp.include_router(group.router) # Moved before auto_reply.router
+    dp.include_router(log.router) # Moved before auto_reply.router
     dp.include_router(auto_reply.router)
 
     # Start polling
