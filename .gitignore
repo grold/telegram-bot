@@ -27,3 +27,4 @@ uv.lock
 
 # GitHub App credentials
 gha-creds-*.json
+active_polls.json

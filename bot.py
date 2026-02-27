@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from config import BOT_TOKEN
-from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log
+from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, poll
 from middlewares.command_logging import InteractionLoggingMiddleware
 from middlewares.auth import AdminMiddleware
 
@@ -24,8 +24,10 @@ async def main():
     log.router.message.middleware(admin_middleware)
     photo.router.message.middleware(admin_middleware)
     top.router.message.middleware(admin_middleware)
+    poll.router.message.middleware(admin_middleware)
 
     # Register routers
+    dp.include_router(poll.router) # Poll handler
     dp.include_router(inline.router) # Inline queries
     dp.include_router(start.router)
     dp.include_router(help.router)
