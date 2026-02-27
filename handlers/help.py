@@ -1,22 +1,25 @@
 from aiogram import Router, types
 from aiogram.filters import Command
+from config import BOT_VERSION, TOP_NUM_LINES, LOG_NUM_LINES
 
 router = Router()
 
 @router.message(Command("help"))
 async def cmd_help(message: types.Message):
     help_text = (
-        "<b>Inline Mode</b>\n"
-        "You can use this bot in any chat by typing its username "
-        "and a city name (e.g., <code>@YourBotName London</code>) to quickly get the weather.\n\n"
-        "<b>Available Commands:</b>\n"
-        "/start - Start the bot\n"
-        "/help - Show this help message\n"
-        "/time [city] - Show current time in specified city (default: Server local time)\n"
-        "/weather [city] - Show current weather for a city or your location\n"
-        "/forecast [city] - Show 5-day weather forecast for a city or your location\n"
-        "/log - Show the last 30 log entries\n"
-        "/top - Show system resource usage\n"
-        "/photo - Send a random photo"
+        f"<b>🤖 Bot Version:</b> <code>{BOT_VERSION}</code>\n\n"
+        "<b>✨ Inline Mode</b>\n"
+        "Type <code>@botcitybot [city]</code> in any chat for quick weather. "
+        "Try <code>@botcitybot</code> without text to use your current location!\n\n"
+        "<b>🛠️ Available Commands:</b>\n"
+        "/start - Welcome message\n"
+        "/help - Show this guide\n"
+        "/time [city] - Local time (default: Server time)\n"
+        "/weather [city] - Current weather or live location\n"
+        "/forecast [city] - 5-day weather forecast\n"
+        "/photo - Send a random photo\n"
+        "/top - Server resource usage (top  lines)\n"
+        "/log - Recent activity (Admin only)\n\n"
+        "<i>Note: /log access is restricted to authorized IDs.</i>"
     )
     await message.answer(help_text, parse_mode="HTML")
