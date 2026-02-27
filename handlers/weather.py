@@ -3,7 +3,7 @@ import aiohttp
 from datetime import datetime, timezone, timedelta
 from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from config import WEATHER_API_KEY
 
 router = Router()
@@ -103,10 +103,22 @@ async def cmd_weather(message: types.Message, command: CommandObject):
     else:
         # Prompt for location
         builder = ReplyKeyboardBuilder()
-        builder.button(text="📍 Share Location", request_location=True)
+        builder.button(text="📍 Share Location (Chat)", request_location=True)
+        
+        inline_builder = InlineKeyboardBuilder()
+        inline_builder.button(text="📍 Share Location (Inline)", switch_inline_query_current_chat="")
         
         await message.answer(
-            "To show you the weather for your current location, please click the button below:",
+            "To show you the weather for your current location, please choose an option below:\n\n"
+            "• <b>Share Location (Chat)</b>: Sends your location directly to the chat.\n"
+            "• <b>Share Location (Inline)</b>: Uses an inline query to show the weather instantly without typing.",
+            reply_markup=inline_builder.as_markup(),
+            parse_mode="HTML"
+        )
+        
+        # We can actually just send the reply keyboard right away if they prefer that
+        await message.answer(
+            "Or use the chat button:",
             reply_markup=builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
         )
 

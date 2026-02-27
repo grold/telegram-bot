@@ -22,19 +22,51 @@ async def inline_weather_handler(inline_query: types.InlineQuery):
     query = inline_query.query.strip()
     results = []
 
-    if not query:
-        # If query is empty, show an instructional message
+    if not query and not inline_query.location:
+        # If query is empty and no location provided, show an instructional message
         results.append(
             InlineQueryResultArticle(
                 id=str(uuid4()),
                 title="Enter a city name for weather",
                 input_message_content=InputTextMessageContent(
-                    message_text="Please type a city name after the bot's username."
+                    message_text="Please type a city name after the bot's username or use the location button."
                 )
             )
         )
         await inline_query.answer(results, cache_time=300)
         return
+
+    # --- Location Handling ---
+    if inline_query.location:
+        lat = inline_query.location.latitude
+        lon = inline_query.location.longitude
+        data = await get_weather(lat=lat, lon=lon)
+        
+        if data:
+            location_name = data.get('name', 'Your Location')
+            full_weather_report = format_weather_message(data)
+            
+            # Create a summary for the description
+            weather_list = data.get("weather", [{}])
+            condition = weather_list[0].get("description", "Unknown").capitalize()
+            temp = data.get("main", {}).get("temp")
+            description_summary = f"{temp}°C, {condition}"
+
+            results.append(
+                InlineQueryResultArticle(
+                    id=str(uuid4()),
+                    title=f"Weather at {location_name}",
+                    description=description_summary,
+                    input_message_content=InputTextMessageContent(
+                        message_text=full_weather_report,
+                        parse_mode="HTML"
+                    )
+                )
+            )
+            # If we only want to return location results when the user presses the button
+            if not query:
+                await inline_query.answer(results, cache_time=60)
+                return
 
     # --- Autocompletion Logic ---
     matching_cities = [city for city in CITIES if city.lower().startswith(query.lower())][:5]
