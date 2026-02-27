@@ -35,6 +35,11 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
    uv sync
    ```
 
+   *Note: If you are setting up the bot for a lean production build without testing tools, you can skip development dependencies by running:*
+   ```bash
+   uv sync --no-dev
+   ```
+
 3. **Environment Variables**:
    Copy the example environment file and fill in your keys:
    ```bash
