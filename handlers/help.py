@@ -9,8 +9,8 @@ async def cmd_help(message: types.Message):
     help_text = (
         f"<b>🤖 Bot Version:</b> <code>{BOT_VERSION}</code>\n\n"
         "<b>✨ Inline Mode</b>\n"
-        "Type <code>@botcitybot [city]</code> in any chat for quick weather. "
-        "Try <code>@botcitybot</code> without text to use your current location!\n\n"
+        "Type <code>@groldtestbot [city]</code> in any chat for quick weather. "
+        "Try <code>@groldtestbot</code> without text to use your current location!\n\n"
         "<b>🛠️ Available Commands:</b>\n"
         "/start - Welcome message\n"
         "/help - Show this guide\n"
