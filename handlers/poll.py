@@ -48,7 +48,7 @@ async def cmd_poll_delete(message: types.Message):
         options=["Yes", "No"],
         type="regular",
         is_anonymous=False,
-        open_period=21600, # 6 hours
+        open_period=900, # 15 minutes
     )
     
     save_poll(poll_message.poll.id, message.chat.id)
@@ -56,13 +56,32 @@ async def cmd_poll_delete(message: types.Message):
 
 @router.poll()
 async def handle_poll_update(poll: types.Poll, bot: Bot):
+    # Log the poll update to commands.log for debugging
+    from datetime import datetime
+    try:
+        from config import BOT_VERSION
+        log_entry = f"{datetime.now()} - [v{BOT_VERSION}] Received poll update: ID={poll.id}, is_closed={poll.is_closed}\n"
+        with open("commands.log", "a", encoding="utf-8") as f:
+            f.write(log_entry)
+    except Exception as e:
+        logger.error(f"Failed to log poll update: {e}")
+
     # This handler triggers whenever the poll status changes (including when it closes)
     if not poll.is_closed:
         return
 
     polls = load_polls()
-    chat_id = polls.get(poll.id)
+    # Ensure ID is string for lookup
+    poll_id = str(poll.id)
+    chat_id = polls.get(poll_id)
     
+    # Log if the poll was found in our storage
+    try:
+        with open("commands.log", "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now()} - Poll {poll_id} lookup result: chat_id={chat_id}\n")
+    except:
+        pass
+
     if not chat_id:
         return
 
@@ -84,11 +103,26 @@ async def handle_poll_update(poll: types.Poll, bot: Bot):
             await bot.leave_chat(chat_id)
         except Exception as e:
             logger.error(f"Error leaving chat {chat_id}: {e}")
+            try:
+                with open("commands.log", "a", encoding="utf-8") as f:
+                    f.write(f"{datetime.now()} - Error leaving chat: {str(e)}\n")
+            except:
+                pass
     else:
         result_text += "The majority voted <b>No</b>. I'm staying! 😊"
         try:
             await bot.send_message(chat_id, result_text, parse_mode="HTML")
         except Exception as e:
             logger.error(f"Error sending results to chat {chat_id}: {e}")
+            try:
+                with open("commands.log", "a", encoding="utf-8") as f:
+                    f.write(f"{datetime.now()} - Error sending message: {str(e)}\n")
+            except:
+                pass
 
-    remove_poll(poll.id)
+    remove_poll(poll_id)
+    try:
+        with open("commands.log", "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now()} - Poll {poll_id} processed and removed.\n")
+    except:
+        pass

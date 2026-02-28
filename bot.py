@@ -42,7 +42,13 @@ async def main():
 
     # Start polling
     try:
-        await dp.start_polling(bot)
+        # Resolve used update types from all registered handlers
+        allowed_updates = dp.resolve_used_update_types()
+        # Explicitly add poll to be absolutely sure
+        if "poll" not in allowed_updates:
+            allowed_updates.append("poll")
+        
+        await dp.start_polling(bot, allowed_updates=allowed_updates)
     finally:
         await bot.session.close()
 
