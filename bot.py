@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from config import BOT_TOKEN
-from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, poll
+from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log
 from middlewares.command_logging import InteractionLoggingMiddleware
 from middlewares.auth import AdminMiddleware
 
@@ -24,10 +24,8 @@ async def main():
     log.router.message.middleware(admin_middleware)
     photo.router.message.middleware(admin_middleware)
     top.router.message.middleware(admin_middleware)
-    poll.router.message.middleware(admin_middleware)
 
     # Register routers
-    dp.include_router(poll.router) # Poll handler
     dp.include_router(inline.router) # Inline queries
     dp.include_router(start.router)
     dp.include_router(help.router)
@@ -44,9 +42,6 @@ async def main():
     try:
         # Resolve used update types from all registered handlers
         allowed_updates = dp.resolve_used_update_types()
-        # Explicitly add poll to be absolutely sure
-        if "poll" not in allowed_updates:
-            allowed_updates.append("poll")
         
         await dp.start_polling(bot, allowed_updates=allowed_updates)
     finally:
