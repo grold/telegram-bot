@@ -20,8 +20,7 @@ async def cmd_help(message: types.Message):
         "<b>🛡️ Admin Commands:</b>\n"
         "/photo - Send a random photo\n"
         "/top - Server resource usage\n"
-        "/log - Recent activity\n"
-        "/poll_delete - Start a 15 min poll to delete bot\n\n"
+        "/log - Recent activity\n\n"
         "<i>Note: Admin commands are restricted to authorized IDs in .auth.</i>"
     )
     await message.answer(help_text, parse_mode="HTML")
