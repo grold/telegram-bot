@@ -1,16 +1,30 @@
 import os
 import tomllib
+import subprocess
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+
+def get_git_branch():
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        return None
 
 def get_version():
     try:
         pyproject_path = Path(__file__).parent / "pyproject.toml"
         with open(pyproject_path, "rb") as f:
             data = tomllib.load(f)
-            return data.get("project", {}).get("version", "unknown")
+            version = data.get("project", {}).get("version", "unknown")
+            branch = get_git_branch()
+            if branch and branch != "HEAD":
+                return f"{version}-{branch}"
+            return version
     except Exception:
         return "unknown"
 
