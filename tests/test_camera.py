@@ -1,5 +1,5 @@
 import pytest
-import httpx
+import requests
 from unittest.mock import AsyncMock, MagicMock, patch
 from aiogram.types import Message, User
 from handlers.camera import cmd_camera
@@ -24,20 +24,19 @@ async def test_cmd_camera_screenshot_success():
     with patch("handlers.camera.get_camera_snapshot", new_callable=AsyncMock) as mock_get_snapshot:
         mock_get_snapshot.return_value = "http://10.1.100.151/snapshot.jpg"
         
-        # Mock httpx
-        with patch("httpx.AsyncClient") as mock_client_class:
-            mock_client = mock_client_class.return_value.__aenter__.return_value
+        # Mock requests.get
+        with patch("requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.content = b"fake_image_content"
-            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_get.return_value = mock_response
             
             await cmd_camera(message, command)
             
             # Verify snapshot was requested
             mock_get_snapshot.assert_called_once()
             # Verify image was downloaded
-            mock_client.get.assert_called()
+            mock_get.assert_called()
             # Verify photo was sent
             message.answer_photo.assert_called_once()
             # Verify processing message was deleted
@@ -66,12 +65,11 @@ async def test_cmd_camera_screenshot_empty_content():
     with patch("handlers.camera.get_camera_snapshot", new_callable=AsyncMock) as mock_get_snapshot:
         mock_get_snapshot.return_value = "http://10.1.100.151/snapshot.jpg"
         
-        with patch("httpx.AsyncClient") as mock_client_class:
-            mock_client = mock_client_class.return_value.__aenter__.return_value
+        with patch("requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.content = b"" # Empty content
-            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_get.return_value = mock_response
             
             await cmd_camera(message, command)
             
