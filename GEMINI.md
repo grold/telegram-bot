@@ -4,6 +4,9 @@
 
 - When i ask for the functionality always use plan mode and ask follow up questions to clarify the requirements.
 - Always unit test the functionality.
+- Increase minor version on each commit or feature.
+- For the new feature always create a new branch, and make a pull request after the feature is ready.
+
 - **Technical Mandate:** Always ensure `ffmpeg` and local dependencies (like Whisper) are checked and handled gracefully in handlers.
 - **Project Context:** This is a modular `aiogram 3` bot. New features should be added as separate routers in `handlers/` and registered in `bot.py`.
 
