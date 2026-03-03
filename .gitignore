@@ -20,6 +20,8 @@ wheels/
 # User data
 photos
 photos/
+audio
+audio/
 screenshots/
 uv.lock
 
