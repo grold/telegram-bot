@@ -1,8 +1,9 @@
 import pytest
 import requests
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch, mock_open
 from aiogram.types import Message, User
 from handlers.camera import cmd_camera
+from pathlib import Path
 
 @pytest.mark.asyncio
 async def test_cmd_camera_screenshot_uri_success():
@@ -32,12 +33,19 @@ async def test_cmd_camera_screenshot_uri_success():
             mock_response.content = b"fake_image_content"
             mock_get.return_value = mock_response
             
-            await cmd_camera(message, command)
-            
-            # Verify snapshot was requested
-            mock_get_uris.assert_called_once()
-            # Verify photo was sent
-            message.answer_photo.assert_called_once()
+            # Mock filesystem operations
+            with patch("pathlib.Path.mkdir"), \
+                 patch("builtins.open", mock_open()) as mocked_file:
+                
+                await cmd_camera(message, command)
+                
+                # Verify snapshot was requested
+                mock_get_uris.assert_called_once()
+                # Verify file was saved
+                mocked_file.assert_called()
+                mocked_file().write.assert_called_with(b"fake_image_content")
+                # Verify photo was sent
+                message.answer_photo.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_cmd_camera_screenshot_rtsp_fallback_success():
@@ -68,12 +76,18 @@ async def test_cmd_camera_screenshot_rtsp_fallback_success():
             with patch("handlers.camera.capture_rtsp_frame", new_callable=AsyncMock) as mock_capture_rtsp:
                 mock_capture_rtsp.return_value = b"rtsp_frame_content"
                 
-                await cmd_camera(message, command)
-                
-                # Verify RTSP fallback was called
-                mock_capture_rtsp.assert_called_once()
-                # Verify photo was sent
-                message.answer_photo.assert_called_once()
+                # Mock filesystem operations
+                with patch("pathlib.Path.mkdir"), \
+                     patch("builtins.open", mock_open()) as mocked_file:
+                    
+                    await cmd_camera(message, command)
+                    
+                    # Verify RTSP fallback was called
+                    mock_capture_rtsp.assert_called_once()
+                    # Verify file was saved
+                    mocked_file().write.assert_called_with(b"rtsp_frame_content")
+                    # Verify photo was sent
+                    message.answer_photo.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_cmd_camera_invalid_args():
@@ -100,4 +114,4 @@ async def test_cmd_camera_screenshot_all_fail():
         
         await cmd_camera(message, command)
         
-        message.answer.assert_any_call("❌ Failed to capture image from both Snapshot URI and RTSP stream. The camera might be busy or credentials might be incorrect for the stream.")
+        message.answer.assert_any_call("❌ Failed to capture image from both Snapshot URI and RTSP stream.")

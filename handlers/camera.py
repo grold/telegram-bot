@@ -4,12 +4,13 @@ import os
 import asyncio
 import requests
 import urllib3
+from datetime import datetime
 from requests.auth import HTTPDigestAuth, HTTPBasicAuth
 from aiogram import Router, types
 from aiogram.filters import Command, CommandObject
 from aiogram.types import BufferedInputFile
 from onvif import ONVIFCamera
-from config import CAMERA_IP, CAMERA_PORT, CAMERA_USER, CAMERA_PASSWORD
+from config import CAMERA_IP, CAMERA_PORT, CAMERA_USER, CAMERA_PASSWORD, SCREENSHOTS_DIR
 
 # Disable insecure request warnings for self-signed camera certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -64,17 +65,15 @@ async def capture_rtsp_frame(rtsp_uri: str):
     """Uses ffmpeg to capture a single frame from an RTSP stream."""
     try:
         # Inject credentials into RTSP URI if they aren't there
-        # Format: rtsp://user:pass@ip:port/path
         if rtsp_uri.startswith("rtsp://") and "@" not in rtsp_uri:
             rtsp_uri = rtsp_uri.replace("rtsp://", f"rtsp://{CAMERA_USER}:{CAMERA_PASSWORD}@")
 
-        logger.info(f"Attempting RTSP frame capture from: {rtsp_uri.split('@')[-1]}") # Log without credentials
+        logger.info(f"Attempting RTSP frame capture from: {rtsp_uri.split('@')[-1]}")
         
-        # ffmpeg command to capture 1 frame
         command = [
             "ffmpeg",
-            "-y", # Overwrite output
-            "-rtsp_transport", "tcp", # Use TCP for better reliability
+            "-y",
+            "-rtsp_transport", "tcp",
             "-i", rtsp_uri,
             "-frames:v", "1",
             "-f", "image2pipe",
@@ -109,14 +108,11 @@ async def cmd_camera(message: types.Message, command: CommandObject):
         processing_msg = await message.answer("📸 Connecting to camera and capturing screenshot...")
         
         try:
-            # 1. Get URIs from ONVIF
             snapshot_uri, rtsp_uri = await get_camera_snapshot()
-            
             image_content = None
             
-            # 2. Try Snapshot URI first if available
+            # 1. Try Snapshot URI
             if snapshot_uri:
-                logger.info(f"Attempting snapshot from URI: {snapshot_uri}")
                 def download_image():
                     try:
                         response = requests.get(
@@ -139,22 +135,33 @@ async def cmd_camera(message: types.Message, command: CommandObject):
                 response = await asyncio.to_thread(download_image)
                 if response:
                     image_content = response.content
-                    logger.info(f"Snapshot URI success: {len(image_content)} bytes")
 
-            # 3. Fallback to RTSP if Snapshot failed
+            # 2. Fallback to RTSP
             if not image_content and rtsp_uri:
-                logger.info("Snapshot URI failed or unavailable. Falling back to RTSP capture...")
+                logger.info("Falling back to RTSP capture...")
                 image_content = await capture_rtsp_frame(rtsp_uri)
-                if image_content:
-                    logger.info(f"RTSP capture success: {len(image_content)} bytes")
 
-            # 4. Send the result
+            # 3. Save and Send
             if image_content:
-                photo = BufferedInputFile(image_content, filename="screenshot.jpg")
-                await message.answer_photo(photo, caption=f"🖼️ Camera Snapshot from {CAMERA_IP}")
+                # Ensure directory exists
+                SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+                
+                # Create timestamped filename
+                timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                filename = f"snapshot_{timestamp}.jpg"
+                filepath = SCREENSHOTS_DIR / filename
+                
+                # Save to disk
+                with open(filepath, "wb") as f:
+                    f.write(image_content)
+                logger.info(f"Saved snapshot to {filepath}")
+
+                # Send to Telegram
+                photo = BufferedInputFile(image_content, filename=filename)
+                await message.answer_photo(photo, caption=f"🖼️ Camera Snapshot from {CAMERA_IP}\nSaved as: <code>{filename}</code>")
                 await processing_msg.delete()
             else:
-                await message.answer("❌ Failed to capture image from both Snapshot URI and RTSP stream. The camera might be busy or credentials might be incorrect for the stream.")
+                await message.answer("❌ Failed to capture image from both Snapshot URI and RTSP stream.")
                     
         except Exception as e:
             logger.error(f"Error in cmd_camera: {e}")
