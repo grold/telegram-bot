@@ -37,7 +37,7 @@ async def cmd_log(message: types.Message):
             log_content = log_content[-4000:]
             
         from config import LOG_NUM_LINES
-        await message.answer(f"<b>Last {min(len(last_lines), LOG_NUM_LINES)} Log Entries:</b>\n<pre>{log_content}</pre>", parse_mode="HTML")
+        await message.answer(f"<b>Last {min(len(last_lines), LOG_NUM_LINES)} Log Entries:</b>\n<pre>{log_content}</pre>")
         
     except Exception as e:
         await message.answer(f"Failed to read log file: {str(e)}")

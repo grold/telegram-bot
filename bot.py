@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
 from config import BOT_TOKEN, AUDIO_CLEANUP_DAYS
 from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, audio, circle
 from tools.cleanup_audio import cleanup_old_audio
@@ -23,7 +24,10 @@ async def main():
         logging.info(f"Running startup cleanup for old audio files (period: {AUDIO_CLEANUP_DAYS} days)...")
         cleanup_old_audio()
 
-    bot = Bot(token=BOT_TOKEN)
+    bot = Bot(
+        token=BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode="HTML")
+    )
     dp = Dispatcher()
 
     # Register middlewares

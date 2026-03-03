@@ -19,28 +19,28 @@ async def cmd_share(message: types.Message, command: CommandObject):
             # Check if we already have a location
             user_record = get_user(user.id)
             if user_record and user_record['latitude'] is not None:
-                await message.answer("Location sharing is now <b>ON</b>. I'll use your last known location. You can send a new location anytime to update it.")
+                await message.answer("""Location sharing is now <b>ON</b>. I'll use your last known location. You can send a new location anytime to update it.""")
             else:
                 builder = ReplyKeyboardBuilder()
                 builder.button(text="📍 Share Current Location", request_location=True)
                 await message.answer(
-                    "Location sharing is now <b>ON</b>! To start appearing in the circle, please share your current location using the button below:",
+                    """Location sharing is now <b>ON</b>! To start appearing in the circle, please share your current location using the button below:""",
                     reply_markup=builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
                 )
         elif args == "off":
             update_user_status(user.id, user.username, user.full_name, False)
-            await message.answer("Location sharing is now <b>OFF</b>. You won't be visible on the map and won't see others.")
+            await message.answer("""Location sharing is now <b>OFF</b>. You won't be visible on the map and won't see others.""")
         elif args == "update":
             # Check if sharing is on
             user_record = get_user(user.id)
             if not user_record or not user_record['is_sharing']:
-                await message.answer("Please turn on sharing first using <code>/share on</code>.")
+                await message.answer("""Please turn on sharing first using <code>/share on</code>.""")
                 return
                 
             builder = ReplyKeyboardBuilder()
             builder.button(text="📍 Update Location", request_location=True)
             await message.answer(
-                "Please share your location to update your position in the circle:",
+                """Please share your location to update your position in the circle:""",
                 reply_markup=builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
             )
         elif args == "status":
@@ -54,12 +54,12 @@ async def cmd_share(message: types.Message, command: CommandObject):
                     status = "✅ Sharing ON, but 📍 location not set yet. Send your location to start appearing on the map."
             else:
                 status = "❌ Sharing is currently OFF."
-            await message.answer(f"<b>Location Sharing Status:</b>\n\n{status}")
+            await message.answer(f"""<b>Location Sharing Status:</b>\n\n{status}""")
         else:
-            await message.answer("Usage: <code>/share on</code>, <code>/share off</code>, <code>/share update</code>, or <code>/share status</code>")
+            await message.answer("""Usage: <code>/share on</code>, <code>/share off</code>, <code>/share update</code>, or <code>/share status</code>""")
     except Exception as e:
         logger.error(f"Error in cmd_share: {e}")
-        await message.answer(f"Sorry, an error occurred while processing your request: {str(e)}")
+        await message.answer(f"""Sorry, an error occurred while processing your request: {str(e)}""")
 
 @router.message(Command("map"))
 async def cmd_map(message: types.Message, command: CommandObject):
@@ -67,7 +67,7 @@ async def cmd_map(message: types.Message, command: CommandObject):
     # Mutual sharing check
     user_record = get_user(message.from_user.id)
     if not user_record or not user_record['is_sharing']:
-        await message.answer("You must turn on location sharing (<code>/share on</code>) to see other users.")
+        await message.answer("""You must turn on location sharing (<code>/share on</code>) to see other users.""")
         return
 
     args = command.args.strip().lower() if command.args else None
@@ -78,7 +78,7 @@ async def cmd_map(message: types.Message, command: CommandObject):
         sharing_users = [u for u in sharing_users if u['latitude'] is not None]
         
         if not sharing_users:
-            await message.answer("No one is currently sharing their location in the circle. Make sure users have shared their location after turning sharing on.")
+            await message.answer("""No one is currently sharing their location in the circle. Make sure users have shared their location after turning sharing on.""")
             return
             
         response = "<b>Circle of Friends:</b>\n\n"
@@ -93,15 +93,15 @@ async def cmd_map(message: types.Message, command: CommandObject):
         target = get_user_by_username(target_name)
         
         if not target:
-            await message.answer(f"Sorry, I couldn't find user @{target_name} in the system.")
+            await message.answer(f"""Sorry, I couldn't find user @{target_name} in the system.""")
             return
             
         if not target['is_sharing']:
-            await message.answer(f"User @{target_name} is not sharing their location.")
+            await message.answer(f"""User @{target_name} is not sharing their location.""")
             return
 
         if target['latitude'] is None:
-            await message.answer(f"User @{target_name} has enabled sharing but hasn't provided their location yet.")
+            await message.answer(f"""User @{target_name} has enabled sharing but hasn't provided their location yet.""")
             return
             
         lat, lon = target['latitude'], target['longitude']
@@ -109,8 +109,8 @@ async def cmd_map(message: types.Message, command: CommandObject):
         name = target['username'] if target['username'] else target['full_name']
         
         await message.answer(
-            f"📍 <b>Location of @{name}:</b>\n"
-            f"Updated: {target['updated_at']}\n\n"
-            f"<a href='{maps_link}'>View on Google Maps</a>",
+            f"""📍 <b>Location of @{name}:</b>\n"""
+            f"""Updated: {target['updated_at']}\n\n"""
+            f"""<a href='{maps_link}'>View on Google Maps</a>""",
             disable_web_page_preview=False
         )

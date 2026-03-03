@@ -26,4 +26,4 @@ async def cmd_help(message: types.Message):
         "/log - Recent activity\n\n"
         "<i>Note: Admin commands are restricted to authorized IDs in .auth.</i>"
     )
-    await message.answer(help_text, parse_mode="HTML")
+    await message.answer(help_text)

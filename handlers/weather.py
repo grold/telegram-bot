@@ -97,7 +97,7 @@ async def cmd_weather(message: types.Message, command: CommandObject):
         # Fetch weather for the provided city
         data = await get_weather(city_name=city_query)
         if data:
-            await message.answer(format_weather_message(data), parse_mode="HTML")
+            await message.answer(format_weather_message(data))
         else:
             await message.answer(f"Sorry, I couldn't find the weather for: '{city_query}'.")
     else:
@@ -112,8 +112,7 @@ async def cmd_weather(message: types.Message, command: CommandObject):
             "To show you the weather for your current location, please choose an option below:\n\n"
             "• <b>Share Location (Chat)</b>: Sends your location directly to the chat.\n"
             "• <b>Share Location (Inline)</b>: Uses an inline query to show the weather instantly without typing.",
-            reply_markup=inline_builder.as_markup(),
-            parse_mode="HTML"
+            reply_markup=inline_builder.as_markup()
         )
         
         # We can actually just send the reply keyboard right away if they prefer that
@@ -133,7 +132,6 @@ async def handle_location(message: types.Message):
     if weather_data:
         await message.answer(
             format_weather_message(weather_data),
-            parse_mode="HTML",
             reply_markup=types.ReplyKeyboardRemove()
         )
     else:
@@ -149,8 +147,7 @@ async def handle_location(message: types.Message):
     forecast_data = await get_forecast(lat=lat, lon=lon)
     if forecast_data:
         await message.answer(
-            format_forecast_message(forecast_data),
-            parse_mode="HTML"
+            format_forecast_message(forecast_data)
         )
     else:
         await message.answer("Could not fetch the forecast for your location.")
