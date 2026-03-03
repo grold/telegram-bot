@@ -20,6 +20,8 @@ async def cmd_help(message: types.Message):
         "<b>📍 Circle of Friends:</b>\n"
         "/share [on|off|update|status] - Manage location sharing\n"
         "/map [list|username] - See mutual friends on a map\n"
+        "<b>📸 Camera:</b>\n"
+        "/camera screenshot - Capture a snapshot from local camera\n"
         "<b>🛡️ Admin Commands:</b>\n"
         "/photo - Send a random photo\n"
         "/top - Server resource usage\n"

@@ -19,7 +19,7 @@ async def cmd_share(message: types.Message, command: CommandObject):
             # Check if we already have a location
             user_record = get_user(user.id)
             if user_record and user_record['latitude'] is not None:
-                await message.answer("""Location sharing is now <b>ON</b>. I'll use your last known location. You can send a new location anytime to update it.""")
+                await message.answer("""Location sharing is now <b>ON</b>. I'll use your last known location. You can send a new location (<code>/share update</code>) anytime to update it.""")
             else:
                 builder = ReplyKeyboardBuilder()
                 builder.button(text="📍 Share Current Location", request_location=True)

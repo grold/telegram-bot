@@ -20,6 +20,8 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
     - `/map [list]` - See a list of friends who are currently sharing their location.
     - `/map [username]` - Get a Google Maps link for a specific friend.
     - **Mutual Privacy**: You can only see others if you are sharing your own location.
+- **Camera Snapshot**: Capture real-time screenshots from a local ONVIF camera.
+    - `/camera screenshot` - Connects to the camera at `10.1.100.151` and sends a snapshot.
 - **Group Management**: The bot automatically greets new members when they join a group.
 - **Auto-Replies**: The bot listens for specific keywords (e.g., "hello", "pricing", "support") and responds automatically.
 - **Logging**: Includes `InteractionLoggingMiddleware` to log all bot interactions (messages, inline queries) to `commands.log`.

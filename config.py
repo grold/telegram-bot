@@ -35,6 +35,10 @@ LOG_NUM_LINES = int(os.getenv("LOG_NUM_LINES", "10"))
 AUDIO_FOLDER = Path(os.getenv("AUDIO_FOLDER", "audio"))
 AUDIO_CLEANUP_DAYS = int(os.getenv("AUDIO_CLEANUP_DAYS", "30"))
 DATABASE_PATH = os.getenv("DATABASE_PATH", "map.db")
+CAMERA_IP = os.getenv("CAMERA_IP", "10.1.100.151")
+CAMERA_PORT = int(os.getenv("CAMERA_PORT", "80"))
+CAMERA_USER = os.getenv("CAMERA_USER", "onvif_login")
+CAMERA_PASSWORD = os.getenv("CAMERA_PASSWORD", "onvif_password")
 BOT_VERSION = get_version()
 
 if not BOT_TOKEN:
