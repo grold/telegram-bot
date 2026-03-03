@@ -7,6 +7,7 @@
 - Increase patch version in pyproject.toml after each commit or feature.
 - For the new feature always create a new branch, and make a pull request after the feature is ready.
 - analize error through implementation of any feature and update GEMINI.md to prevent those next time
+- When i ask to release new version increase minor version in pyproject.toml and make a commit with a tag = version
 
 - **Technical Mandate:** Always ensure `ffmpeg` and local dependencies (like Whisper) are checked and handled gracefully in handlers.
 - **Technical Mandate:** Use triple-quoted strings (`"""..."""`) for all multi-line strings and formatted responses to prevent syntax errors from accidental newlines.
