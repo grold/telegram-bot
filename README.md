@@ -20,6 +20,8 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
     - `/map [list]` - See a list of friends who are currently sharing their location.
     - `/map [username]` - Get a Google Maps link for a specific friend.
     - **Mutual Privacy**: You can only see others if you are sharing your own location.
+- **Camera Snapshot**: Capture real-time screenshots from a local ONVIF camera.
+    - `/camera screenshot` - Connects to the camera, sends a snapshot, and saves it to the `screenshots/` folder.
 - **Group Management**: The bot automatically greets new members when they join a group.
 - **Auto-Replies**: The bot listens for specific keywords (e.g., "hello", "pricing", "support") and responds automatically.
 - **Logging**: Includes `InteractionLoggingMiddleware` to log all bot interactions (messages, inline queries) to `commands.log`.
@@ -30,6 +32,7 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
 - [uv](https://github.com/astral-sh/uv) (Package Manager)
 - Telegram Bot Token (from [@BotFather](https://t.me/BotFather))
 - OpenWeatherMap API Key
+- ffmpeg (for audio transcription and camera snapshots)
 
 ## Setup & Installation
 
@@ -44,11 +47,6 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
    uv sync
    ```
 
-   *Note: If you are setting up the bot for a lean production build without testing tools, you can skip development dependencies by running:*
-   ```bash
-   uv sync --no-dev
-   ```
-
 3. **Environment Variables**:
    Copy the example environment file and fill in your keys:
    ```bash
@@ -60,12 +58,17 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
    WEATHER_API_KEY=your_openweathermap_api_key_here
    AUDIO_FOLDER=audio
    AUDIO_CLEANUP_DAYS=30
+   DATABASE_PATH=map.db
+   CAMERA_IP=10.1.100.151
+   CAMERA_PORT=80
+   CAMERA_USER=onvif_login
+   CAMERA_PASSWORD=onvif_password
+   SCREENSHOTS_DIR=screenshots
    ```
 
 4. **Prepare Assets (Optional)**:
    - Create a `photos/` directory and add `.jpg` or `.png` files to use the `/photo` command.
    - Create a `cities.txt` file (one city per line) to enable inline search autocompletion.
-   - Ensure `ffmpeg` is installed on your system to enable audio transcription.
 
 ## Tools
 
@@ -76,7 +79,6 @@ To enable auto-completion for inline queries, the bot needs a `cities.txt` file.
 ```bash
 uv run python tools/populate_cities.py
 ```
-This will download the latest data from Geonames, filter it, and output a ready-to-use `cities.txt` file in your project root.
 
 ## Usage
 
@@ -85,18 +87,12 @@ Once everything is set up, start the bot by running:
 ```bash
 uv run python bot.py
 ```
-*(Or simply `python bot.py` if your virtual environment is activated)*
 
 ## Testing
 
-The project uses `pytest` and `pytest-asyncio` for unit testing. The tests are located in the `tests/` directory.
+The project uses `pytest` and `pytest-asyncio` for unit testing.
 
 To run the entire test suite:
 ```bash
 uv run pytest
-```
-
-To run a specific test file:
-```bash
-uv run pytest tests/test_start.py
 ```
