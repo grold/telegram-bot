@@ -8,9 +8,9 @@ from datetime import datetime
 from requests.auth import HTTPDigestAuth, HTTPBasicAuth
 from aiogram import Router, types
 from aiogram.filters import Command, CommandObject
-from aiogram.types import BufferedInputFile
+from aiogram.types import BufferedInputFile, FSInputFile
 from onvif import ONVIFCamera
-from config import CAMERA_IP, CAMERA_PORT, CAMERA_USER, CAMERA_PASSWORD, SCREENSHOTS_DIR
+from config import CAMERA_IP, CAMERA_PORT, CAMERA_USER, CAMERA_PASSWORD, SCREENSHOTS_DIR, MAX_VIDEO_DURATION
 
 # Disable insecure request warnings for self-signed camera certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -99,12 +99,51 @@ async def capture_rtsp_frame(rtsp_uri: str):
         logger.error(f"RTSP capture exception: {e}")
         return None
 
+async def record_rtsp_video(rtsp_uri: str, duration: int, output_path: os.PathLike):
+    """Uses ffmpeg to record a video from an RTSP stream for a given duration."""
+    try:
+        # Inject credentials into RTSP URI if they aren't there
+        if rtsp_uri.startswith("rtsp://") and "@" not in rtsp_uri:
+            rtsp_uri = rtsp_uri.replace("rtsp://", f"rtsp://{CAMERA_USER}:{CAMERA_PASSWORD}@")
+
+        logger.info(f"Attempting RTSP video record from: {rtsp_uri.split('@')[-1]} for {duration}s")
+        
+        command = [
+            "ffmpeg",
+            "-y",
+            "-rtsp_transport", "tcp",
+            "-i", rtsp_uri,
+            "-t", str(duration),
+            "-vcodec", "copy",
+            "-acodec", "copy",
+            str(output_path)
+        ]
+        
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode == 0:
+            return True
+        else:
+            error_msg = stderr.decode().splitlines()[-1] if stderr else "Unknown ffmpeg error"
+            logger.error(f"ffmpeg recording failed: {error_msg}")
+            return False
+    except Exception as e:
+        logger.error(f"RTSP video record exception: {e}")
+        return False
+
 @router.message(Command("camera"))
 async def cmd_camera(message: types.Message, command: CommandObject):
-    """Handles the /camera screenshot command."""
-    args = command.args.strip().lower() if command.args else None
+    """Handles the /camera screenshot and /camera video [sec] commands."""
+    args = command.args.split() if command.args else []
+    subcommand = args[0].lower() if args else None
     
-    if args == "screenshot":
+    if subcommand == "screenshot":
         processing_msg = await message.answer("📸 Connecting to camera and capturing screenshot...")
         
         try:
@@ -164,7 +203,50 @@ async def cmd_camera(message: types.Message, command: CommandObject):
                 await message.answer("❌ Failed to capture image from both Snapshot URI and RTSP stream.")
                     
         except Exception as e:
-            logger.error(f"Error in cmd_camera: {e}")
+            logger.error(f"Error in cmd_camera screenshot: {e}")
             await message.answer(f"❌ Error capturing screenshot: {str(e)}")
+            
+    elif subcommand == "video":
+        duration = 5
+        if len(args) > 1:
+            try:
+                duration = int(args[1])
+                if duration <= 0:
+                    duration = 5
+                elif duration > MAX_VIDEO_DURATION:
+                    duration = MAX_VIDEO_DURATION
+            except ValueError:
+                duration = 5
+
+        processing_msg = await message.answer(f"🎥 Connecting to camera and recording {duration}s video...")
+        
+        try:
+            _, rtsp_uri = await get_camera_snapshot()
+            
+            if rtsp_uri:
+                # Ensure directory exists
+                SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+                
+                # Create timestamped filename
+                timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                filename = f"video_{timestamp}.mp4"
+                filepath = SCREENSHOTS_DIR / filename
+                
+                success = await record_rtsp_video(rtsp_uri, duration, filepath)
+                
+                if success and filepath.exists() and filepath.stat().st_size > 0:
+                    # Send to Telegram
+                    video = FSInputFile(filepath)
+                    await message.answer_video(video, caption=f"🎥 Camera Video from {CAMERA_IP} ({duration}s)\nSaved as: <code>{filename}</code>")
+                    await processing_msg.delete()
+                else:
+                    await message.answer("❌ Failed to record video from RTSP stream.")
+            else:
+                await message.answer("❌ No RTSP stream available for video recording.")
+                    
+        except Exception as e:
+            logger.error(f"Error in cmd_camera video: {e}")
+            await message.answer(f"❌ Error recording video: {str(e)}")
+            
     else:
-        await message.answer("Usage: <code>/camera screenshot</code>")
+        await message.answer("Usage:\n<code>/camera screenshot</code>\n<code>/camera video [sec]</code>")

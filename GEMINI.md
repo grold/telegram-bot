@@ -4,9 +4,9 @@
 
 - When i ask for the functionality always use plan mode and ask follow up questions to clarify the requirements.
 - Always unit test the functionality.
-- Increase minor version on each commit or feature.
+- Increase patch version in pyproject.toml after each commit or feature.
 - For the new feature always create a new branch, and make a pull request after the feature is ready.
-- analize errort through implementation of any feature and update GEMINI.md to prevent those next time
+- analize error through implementation of any feature and update GEMINI.md to prevent those next time
 
 - **Technical Mandate:** Always ensure `ffmpeg` and local dependencies (like Whisper) are checked and handled gracefully in handlers.
 - **Technical Mandate:** Use triple-quoted strings (`"""..."""`) for all multi-line strings and formatted responses to prevent syntax errors from accidental newlines.

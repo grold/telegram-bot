@@ -40,6 +40,7 @@ CAMERA_IP = os.getenv("CAMERA_IP", "10.1.100.151")
 CAMERA_PORT = int(os.getenv("CAMERA_PORT", "8000"))
 CAMERA_USER = os.getenv("CAMERA_USER", "onvif_login")
 CAMERA_PASSWORD = os.getenv("CAMERA_PASSWORD", "onvif_password")
+MAX_VIDEO_DURATION = int(os.getenv("MAX_VIDEO_DURATION", "30"))
 BOT_VERSION = get_version()
 
 if not BOT_TOKEN:
