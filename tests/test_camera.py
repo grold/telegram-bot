@@ -56,6 +56,28 @@ async def test_cmd_camera_invalid_args():
     message.answer.assert_called_with("Usage: <code>/camera screenshot</code>")
 
 @pytest.mark.asyncio
+async def test_cmd_camera_screenshot_empty_content():
+    message = AsyncMock(spec=Message)
+    message.answer = AsyncMock()
+    
+    command = MagicMock()
+    command.args = "screenshot"
+    
+    with patch("handlers.camera.get_camera_snapshot", new_callable=AsyncMock) as mock_get_snapshot:
+        mock_get_snapshot.return_value = "http://10.1.100.151/snapshot.jpg"
+        
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = mock_client_class.return_value.__aenter__.return_value
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.content = b"" # Empty content
+            mock_client.get = AsyncMock(return_value=mock_response)
+            
+            await cmd_camera(message, command)
+            
+            message.answer.assert_any_call("❌ Camera returned an empty image. Snapshot failed.")
+
+@pytest.mark.asyncio
 async def test_cmd_camera_screenshot_onvif_failure():
     message = AsyncMock(spec=Message)
     message.answer = AsyncMock()

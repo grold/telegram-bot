@@ -69,6 +69,11 @@ async def cmd_camera(message: types.Message, command: CommandObject):
                     response = await client.get(snapshot_uri, timeout=10.0)
                 
                 if response.status_code == 200:
+                    if not response.content:
+                        await message.answer("❌ Camera returned an empty image. Snapshot failed.")
+                        return
+
+                    logger.info(f"Successfully downloaded snapshot: {len(response.content)} bytes")
                     # 3. Send the image
                     photo = BufferedInputFile(response.content, filename="screenshot.jpg")
                     await message.answer_photo(photo, caption=f"🖼️ Camera Snapshot from {CAMERA_IP}")
