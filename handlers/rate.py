@@ -20,7 +20,9 @@ async def cmd_rate(message: types.Message):
         async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(CBR_API_URL, timeout=15) as response:
                 if response.status == 200:
-                    data = await response.json()
+                    # CBR mirror returns application/javascript sometimes, 
+                    # so we tell aiohttp to skip strict content-type check.
+                    data = await response.json(content_type=None)
                     valute = data.get("Valute", {})
                     date_str = data.get("Date", "")
                     
