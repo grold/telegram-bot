@@ -112,7 +112,7 @@ async def record_rtsp_video(rtsp_uri: str, duration: int, output_path: os.PathLi
             "ffmpeg",
             "-y",
             "-rtsp_transport", "tcp",
-            "-stimeout", "5000000",  # 5 seconds timeout for RTSP connection
+            "-timeout", "5000000",  # 5 seconds timeout for RTSP connection
             "-i", rtsp_uri,
             "-t", str(duration),
             "-vcodec", "libx264",
