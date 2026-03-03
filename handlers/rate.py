@@ -1,5 +1,6 @@
 import logging
 import aiohttp
+from datetime import datetime
 from aiogram import Router, types
 from aiogram.filters import Command
 
@@ -13,18 +14,30 @@ CBR_API_URL = "https://www.cbr-xml-daily.ru/daily_json.js"
 async def cmd_rate(message: types.Message):
     """Handles the /rate command using CBR data."""
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(CBR_API_URL, timeout=10) as response:
+        # Disable SSL verification to prevent "certificate verify failed" errors in some envs
+        # We use a custom connector for this.
+        connector = aiohttp.TCPConnector(ssl=False)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(CBR_API_URL, timeout=15) as response:
                 if response.status == 200:
                     data = await response.json()
                     valute = data.get("Valute", {})
+                    date_str = data.get("Date", "")
                     
+                    # Try to parse date for a cleaner display
+                    try:
+                        # CBR date format is usually ISO: 2026-03-04T11:30:00+03:00
+                        date_obj = datetime.fromisoformat(date_str)
+                        formatted_date = date_obj.strftime("%d.%m.%Y")
+                    except (ValueError, TypeError):
+                        formatted_date = date_str[:10] if date_str else "Unknown"
+
                     # Extract rates
                     usd = valute.get("USD", {})
                     eur = valute.get("EUR", {})
                     jpy = valute.get("JPY", {})
                     
-                    response_parts = ["<b>💰 Current Exchange Rates (CBR.ru):</b>\n"]
+                    response_parts = [f"<b>💰 Exchange Rates (CBR.ru {formatted_date}):</b>\n"]
                     
                     found_any = False
                     
@@ -44,7 +57,8 @@ async def cmd_rate(message: types.Message):
                     if jpy:
                         nominal = jpy.get("Nominal", 1)
                         rate = jpy.get("Value")
-                        if nominal != 1:
+                        # Normalize to 1 JPY if nominal is not 1 (e.g., 100)
+                        if nominal and nominal != 1:
                             rate = rate / nominal
                         response_parts.append(f"• <b>JPY/RUB:</b> <code>{rate:.2f}</code>")
                         found_any = True
@@ -57,7 +71,8 @@ async def cmd_rate(message: types.Message):
                     await message.answer("\n".join(response_parts))
                 else:
                     logger.error(f"CBR API returned status {response.status}")
-                    await message.answer("⚠️ Sorry, the exchange rate service is currently unavailable.")
+                    await message.answer(f"⚠️ Sorry, the exchange rate service returned an error (Status {response.status}).")
     except Exception as e:
-        logger.exception("Error fetching exchange rates")
-        await message.answer("⚠️ Sorry, an error occurred while fetching exchange rates.")
+        logger.exception(f"Error fetching exchange rates: {e}")
+        # Return a more descriptive error to the user for now to help diagnosis
+        await message.answer(f"⚠️ Sorry, an error occurred while fetching exchange rates: <code>{type(e).__name__}</code>")

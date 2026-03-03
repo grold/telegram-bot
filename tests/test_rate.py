@@ -11,6 +11,7 @@ async def test_cmd_rate_success():
 
     # Mock CBR API response
     mock_data = {
+        "Date": "2026-03-04T11:30:00+03:00",
         "Valute": {
             "USD": {"Value": 100.50},
             "EUR": {"Value": 110.20},
@@ -29,6 +30,8 @@ async def test_cmd_rate_success():
         async def __aexit__(self, exc_type, exc, tb):
             pass
 
+    # Patch ClientSession.get. Note: we need to handle the connector argument in the constructor too if we mock it deeply, 
+    # but mocking the get method directly is usually enough.
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_get.return_value = MockResponse(mock_data, 200)
 
@@ -39,9 +42,10 @@ async def test_cmd_rate_success():
         args, _ = message.answer.call_args
         response_text = args[0]
         
+        assert "Exchange Rates (CBR.ru 04.03.2026)" in response_text
         assert "USD/RUB:</b> <code>100.50</code>" in response_text
         assert "EUR/RUB:</b> <code>110.20</code>" in response_text
-        assert "JPY/RUB:</b> <code>0.65</code>" in response_text # 65.00 / 100
+        assert "JPY/RUB:</b> <code>0.65</code>" in response_text
         assert "Valekoo reports" in response_text
 
 @pytest.mark.asyncio
@@ -62,4 +66,6 @@ async def test_cmd_rate_failure():
 
         await cmd_rate(message)
 
-        message.answer.assert_called_once_with("⚠️ Sorry, the exchange rate service is currently unavailable.")
+        # The updated code returns status in the message
+        args, _ = message.answer.call_args
+        assert "returned an error (Status 500)" in args[0]
