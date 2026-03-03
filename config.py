@@ -32,6 +32,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 TOP_NUM_LINES = int(os.getenv("TOP_NUM_LINES", "10"))
 LOG_NUM_LINES = int(os.getenv("LOG_NUM_LINES", "10"))
+AUDIO_FOLDER = Path(os.getenv("AUDIO_FOLDER", "audio"))
+AUDIO_CLEANUP_DAYS = int(os.getenv("AUDIO_CLEANUP_DAYS", "30"))
 BOT_VERSION = get_version()
 
 if not BOT_TOKEN:
