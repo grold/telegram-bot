@@ -70,6 +70,7 @@ async def cmd_rate(message: types.Message):
                         return
 
                     response_parts.append("\n<i>Valekoo reports</i>")
+                    response_parts.append('<a href="https://t.me/supopochi">supopochi</a>')
                     await message.answer("\n".join(response_parts))
                 else:
                     logger.error(f"CBR API returned status {response.status}")
