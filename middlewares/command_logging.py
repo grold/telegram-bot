@@ -1,21 +1,11 @@
 import logging
+import asyncio
 import time
 from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 from config import BOT_VERSION
-
-# Setup a dedicated logger for interactions
-COMMAND_LOG_FILE = "commands.log"
-interaction_logger = logging.getLogger("interaction_log")
-interaction_logger.setLevel(logging.INFO)
-
-# Create a file handler if it doesn't exist
-if not interaction_logger.handlers:
-    fh = logging.FileHandler(COMMAND_LOG_FILE)
-    formatter = logging.Formatter('%(asctime)s - %(message)s')
-    fh.setFormatter(formatter)
-    interaction_logger.addHandler(fh)
+from database import add_interaction_log
 
 class InteractionLoggingMiddleware(BaseMiddleware):
     async def __call__(
@@ -65,12 +55,19 @@ class InteractionLoggingMiddleware(BaseMiddleware):
         end_time = time.perf_counter()
         duration_ms = (end_time - start_time) * 1000
         
-        # Final log entry
-        log_entry = (
-            f"[v{BOT_VERSION}] {chat_info}{message_id_info}"
-            f"User [{user_info}] interacted: {content_desc} "
-            f"[Duration: {duration_ms:.2f}ms]"
-        )
-        interaction_logger.info(log_entry)
+        # Log to SQLite (asynchronously to avoid blocking)
+        asyncio.create_task(asyncio.to_thread(
+            add_interaction_log,
+            user_id=user.id,
+            username=user.username,
+            full_name=user.full_name,
+            chat_id=chat.id if chat else None,
+            chat_type=chat.type if chat else None,
+            chat_title=getattr(chat, "title", None) if chat else None,
+            message_id=message_id,
+            content=content_desc,
+            duration_ms=duration_ms,
+            bot_version=BOT_VERSION
+        ))
         
         return result

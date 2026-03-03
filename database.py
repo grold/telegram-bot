@@ -19,8 +19,47 @@ def init_db():
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            user_id INTEGER,
+            username TEXT,
+            full_name TEXT,
+            chat_id INTEGER,
+            chat_type TEXT,
+            chat_title TEXT,
+            message_id INTEGER,
+            content TEXT,
+            duration_ms REAL,
+            bot_version TEXT
+        )
+    ''')
     conn.commit()
     conn.close()
+
+def add_interaction_log(user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version):
+    """Adds a new interaction log entry to the database."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO logs (
+            user_id, username, full_name, chat_id, chat_type, chat_title, 
+            message_id, content, duration_ms, bot_version
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version))
+    conn.commit()
+    conn.close()
+
+def get_recent_logs(limit=10):
+    """Retrieves the most recent interaction logs."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM logs ORDER BY timestamp DESC LIMIT ?', (limit,))
+    logs = cursor.fetchall()
+    conn.close()
+    return logs
 
 def update_user_status(user_id, username, full_name, is_sharing):
     """Updates a user's sharing status and basic info."""
