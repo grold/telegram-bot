@@ -16,7 +16,7 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
     - Audio files and their transcriptions are saved in `audio/YYYY-MM-DD/`.
     - Automatic cleanup of old files is performed on bot startup (default: 30 days).
 - **Circle of Friends**: Share your location with friends and see where they are.
-    - `/share [on|off|update]` - Manage your location sharing status.
+    - `/share [on|off|update|status]` - Manage your location sharing status and see current info.
     - `/map [list]` - See a list of friends who are currently sharing their location.
     - `/map [username]` - Get a Google Maps link for a specific friend.
     - **Mutual Privacy**: You can only see others if you are sharing your own location.

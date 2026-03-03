@@ -73,6 +73,48 @@ async def test_location_auto_update():
     assert user['longitude'] == 30.0
 
 @pytest.mark.asyncio
+async def test_cmd_share_status():
+    message = AsyncMock(spec=Message)
+    message.answer = AsyncMock()
+    message.from_user = MagicMock(spec=User)
+    message.from_user.id = 1
+    
+    # User 1 is sharing but no location
+    update_user_status(1, "user1", "User One", True)
+    
+    command = MagicMock()
+    command.args = "status"
+    
+    await cmd_share(message, command)
+    
+    # Verify status response
+    args, _ = message.answer.call_args
+    assert "Sharing ON" in args[0]
+    assert "location not set yet" in args[0]
+
+@pytest.mark.asyncio
+async def test_cmd_map_no_location_info():
+    message = AsyncMock(spec=Message)
+    message.answer = AsyncMock()
+    message.from_user = MagicMock(spec=User)
+    message.from_user.id = 1
+    
+    # User 1 is sharing
+    update_user_status(1, "user1", "User One", True)
+    update_user_location(1, 10.0, 10.0)
+    
+    # User 2 is sharing but NO location
+    update_user_status(2, "user2", "User Two", True)
+    
+    command = MagicMock()
+    command.args = "user2"
+    
+    await cmd_map(message, command)
+    
+    # Verify specific message for missing location
+    message.answer.assert_called_with("User @user2 has enabled sharing but hasn't provided their location yet.")
+
+@pytest.mark.asyncio
 async def test_cmd_map_list_success():
     message = AsyncMock(spec=Message)
     message.answer = AsyncMock()

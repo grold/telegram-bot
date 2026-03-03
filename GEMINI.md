@@ -6,6 +6,7 @@
 - Always unit test the functionality.
 - Increase minor version on each commit or feature.
 - For the new feature always create a new branch, and make a pull request after the feature is ready.
+- analize errort through implementation of any feature and update GEMINI.md to prevent those next time
 
 - **Technical Mandate:** Always ensure `ffmpeg` and local dependencies (like Whisper) are checked and handled gracefully in handlers.
 - **Technical Mandate:** Use triple-quoted strings (`"""..."""`) for all multi-line strings and formatted responses to prevent syntax errors from accidental newlines.
