@@ -19,7 +19,7 @@ async def cmd_share(message: types.Message, command: CommandObject):
             # Check if we already have a location
             user_record = get_user(user.id)
             if user_record and user_record['latitude'] is not None:
-                await message.answer("""Location sharing is now <b>ON</b>. I'll use your last known location. You can send a new location anytime to update it.""")
+                await message.answer("""Location sharing is now <b>ON</b>. I'll use your last known location. You can send a new location (<code>/share update</code>) anytime to update it.""")
             else:
                 builder = ReplyKeyboardBuilder()
                 builder.button(text="📍 Share Current Location", request_location=True)
@@ -107,6 +107,9 @@ async def cmd_map(message: types.Message, command: CommandObject):
         lat, lon = target['latitude'], target['longitude']
         maps_link = f"https://www.google.com/maps?q={lat},{lon}"
         name = target['username'] if target['username'] else target['full_name']
+        
+        # Send native Telegram location
+        await message.answer_location(latitude=lat, longitude=lon)
         
         await message.answer(
             f"""📍 <b>Location of @{name}:</b>\n"""
