@@ -119,7 +119,7 @@ async def record_rtsp_video(rtsp_uri: str, duration: int, output_path: os.PathLi
             "-preset", "ultrafast",
             "-crf", "28",
             "-pix_fmt", "yuv420p",
-            "-acodec", "aac",
+            "-an",
             "-movflags", "+faststart",
             str(output_path)
         ]
