@@ -34,6 +34,7 @@ TOP_NUM_LINES = int(os.getenv("TOP_NUM_LINES", "10"))
 LOG_NUM_LINES = int(os.getenv("LOG_NUM_LINES", "10"))
 AUDIO_FOLDER = Path(os.getenv("AUDIO_FOLDER", "audio"))
 AUDIO_CLEANUP_DAYS = int(os.getenv("AUDIO_CLEANUP_DAYS", "30"))
+DATABASE_PATH = os.getenv("DATABASE_PATH", "map.db")
 BOT_VERSION = get_version()
 
 if not BOT_TOKEN:

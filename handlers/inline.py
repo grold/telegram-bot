@@ -58,8 +58,7 @@ async def inline_weather_handler(inline_query: types.InlineQuery):
                     title=f"Weather at {location_name}",
                     description=description_summary,
                     input_message_content=InputTextMessageContent(
-                        message_text=full_weather_report,
-                        parse_mode="HTML"
+                        message_text=full_weather_report
                     )
                 )
             )
@@ -93,8 +92,7 @@ async def inline_weather_handler(inline_query: types.InlineQuery):
                         title=city,
                         description=description_summary,
                         input_message_content=InputTextMessageContent(
-                            message_text=full_weather_report,
-                            parse_mode="HTML"
+                            message_text=full_weather_report
                         )
                     )
                 )
@@ -108,8 +106,7 @@ async def inline_weather_handler(inline_query: types.InlineQuery):
                     id=str(uuid4()),
                     title=f"Weather in {data.get('name', query)}",
                     input_message_content=InputTextMessageContent(
-                        message_text=full_weather_report,
-                        parse_mode="HTML"
+                        message_text=full_weather_report
                     )
                 )
             )

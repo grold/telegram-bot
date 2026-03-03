@@ -91,7 +91,7 @@ async def cmd_forecast(message: types.Message, command: CommandObject):
     if city_query:
         data = await get_forecast(city_name=city_query)
         if data:
-            await message.answer(format_forecast_message(data), parse_mode="HTML")
+            await message.answer(format_forecast_message(data))
         else:
             await message.answer(f"Sorry, I couldn't find the forecast for: '{city_query}'.")
     else:

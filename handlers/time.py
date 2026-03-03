@@ -52,8 +52,7 @@ async def cmd_time(message: types.Message, command: CommandObject):
             f"The current time in <b>{display_name}</b> is:\n"
             f"🕒 <code>{time_str}</code>\n"
             f"📅 <code>{date_str}</code>\n"
-            f"🌍 Timezone: <i>{tz_name}</i>",
-            parse_mode="HTML"
+            f"🌍 Timezone: <i>{tz_name}</i>"
         )
     except Exception as e:
         logger.exception(f"Error calculating time for timezone: {tz_name}")
