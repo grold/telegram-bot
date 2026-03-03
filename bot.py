@@ -1,8 +1,9 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
-from config import BOT_TOKEN
-from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log
+from config import BOT_TOKEN, AUDIO_CLEANUP_DAYS
+from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, audio
+from tools.cleanup_audio import cleanup_old_audio
 from middlewares.command_logging import InteractionLoggingMiddleware
 from middlewares.auth import AdminMiddleware
 
@@ -11,6 +12,11 @@ async def main():
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     )
+
+    # Run cleanup on startup if enabled
+    if AUDIO_CLEANUP_DAYS > 0:
+        logging.info(f"Running startup cleanup for old audio files (period: {AUDIO_CLEANUP_DAYS} days)...")
+        cleanup_old_audio()
 
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
@@ -36,6 +42,7 @@ async def main():
     dp.include_router(weather.router)
     dp.include_router(group.router) # Moved before auto_reply.router
     dp.include_router(log.router) # Moved before auto_reply.router
+    dp.include_router(audio.router)
     dp.include_router(auto_reply.router)
 
     # Start polling

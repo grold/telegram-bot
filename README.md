@@ -11,6 +11,10 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
 - **Inline Queries**: Type `@<YourBotName> [city]` in any chat to instantly get the weather for that city. Includes auto-completion if `cities.txt` is populated.
 - **System Top (`/top`)**: Shows server resource usage utilizing the standard linux `top` command.
 - **Random Photos (`/photo`)**: Sends a randomly selected photo from the local `photos/` directory.
+- **Audio Transcription**: The bot automatically transcribes voice and audio messages sent to groups using OpenAI's Whisper model.
+    - Transcriptions are sent as replies to the original message.
+    - Audio files and their transcriptions are saved in `audio/YYYY-MM-DD/`.
+    - Automatic cleanup of old files is performed on bot startup (default: 30 days).
 - **Group Management**: The bot automatically greets new members when they join a group.
 - **Auto-Replies**: The bot listens for specific keywords (e.g., "hello", "pricing", "support") and responds automatically.
 - **Logging**: Includes `InteractionLoggingMiddleware` to log all bot interactions (messages, inline queries) to `commands.log`.
@@ -49,11 +53,14 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
    ```env
    BOT_TOKEN=your_telegram_bot_token_here
    WEATHER_API_KEY=your_openweathermap_api_key_here
+   AUDIO_FOLDER=audio
+   AUDIO_CLEANUP_DAYS=30
    ```
 
 4. **Prepare Assets (Optional)**:
    - Create a `photos/` directory and add `.jpg` or `.png` files to use the `/photo` command.
    - Create a `cities.txt` file (one city per line) to enable inline search autocompletion.
+   - Ensure `ffmpeg` is installed on your system to enable audio transcription.
 
 ## Tools
 
