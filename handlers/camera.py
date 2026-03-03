@@ -112,10 +112,15 @@ async def record_rtsp_video(rtsp_uri: str, duration: int, output_path: os.PathLi
             "ffmpeg",
             "-y",
             "-rtsp_transport", "tcp",
+            "-stimeout", "5000000",  # 5 seconds timeout for RTSP connection
             "-i", rtsp_uri,
             "-t", str(duration),
-            "-vcodec", "copy",
-            "-acodec", "copy",
+            "-vcodec", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "28",
+            "-pix_fmt", "yuv420p",
+            "-acodec", "aac",
+            "-movflags", "+faststart",
             str(output_path)
         ]
         
@@ -130,8 +135,10 @@ async def record_rtsp_video(rtsp_uri: str, duration: int, output_path: os.PathLi
         if process.returncode == 0:
             return True
         else:
-            error_msg = stderr.decode().splitlines()[-1] if stderr else "Unknown ffmpeg error"
-            logger.error(f"ffmpeg recording failed: {error_msg}")
+            stderr_output = stderr.decode()
+            error_msg = stderr_output.splitlines()[-1] if stderr_output else "Unknown ffmpeg error"
+            logger.error(f"ffmpeg recording failed with code {process.returncode}. Last error: {error_msg}")
+            logger.debug(f"Full ffmpeg stderr: {stderr_output}")
             return False
     except Exception as e:
         logger.error(f"RTSP video record exception: {e}")
