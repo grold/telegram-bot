@@ -114,21 +114,3 @@ async def cmd_map(message: types.Message, command: CommandObject):
             f"<a href='{maps_link}'>View on Google Maps</a>",
             disable_web_page_preview=False
         )
-
-@router.message(F.location)
-async def handle_circle_location_update(message: types.Message):
-    """Automatically updates location for sharing users."""
-    user = message.from_user
-    user_record = get_user(user.id)
-    
-    # Only update if the user has opted in to sharing
-    if user_record and user_record['is_sharing']:
-        lat = message.location.latitude
-        lon = message.location.longitude
-        update_user_location(user.id, lat, lon)
-        logger.info(f"Updated location for user {user.id} (@{user.username})")
-        # Optional: notify the user only if they explicitly used /share update
-        # For now, we remain silent as location might be shared for weather etc.
-    
-    # We do NOT return or stop propagation here, because other handlers (like weather) 
-    # might still need to process this location message.

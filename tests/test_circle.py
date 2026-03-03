@@ -3,7 +3,8 @@ import os
 import sqlite3
 from unittest.mock import AsyncMock, MagicMock, patch
 from aiogram.types import Message, User, Location
-from handlers.circle import cmd_share, cmd_map, handle_circle_location_update
+from handlers.circle import cmd_share, cmd_map
+from middlewares.circle_location import CircleLocationMiddleware
 from database import init_db, get_user, update_user_status, update_user_location
 
 @pytest.fixture(autouse=True)
@@ -53,24 +54,31 @@ async def test_cmd_map_mutual_privacy():
     message.answer.assert_called_with("You must turn on location sharing (<code>/share on</code>) to see other users.")
 
 @pytest.mark.asyncio
-async def test_location_auto_update():
-    message = AsyncMock(spec=Message)
-    message.from_user = MagicMock(spec=User)
-    message.from_user.id = 1
-    message.from_user.username = "user1"
+async def test_location_auto_update_middleware():
+    # Mock message
+    message = MagicMock(spec=Message)
     message.location = MagicMock(spec=Location)
     message.location.latitude = 50.0
     message.location.longitude = 30.0
+    message.from_user = MagicMock(spec=User)
+    message.from_user.id = 1
+    message.from_user.username = "user1"
     
     # User 1 is sharing
     update_user_status(1, "user1", "User One", True)
     
-    await handle_circle_location_update(message)
+    # Middleware setup
+    middleware = CircleLocationMiddleware()
+    handler = AsyncMock()
+    
+    await middleware(handler, message, {})
     
     # Verify location stored
     user = get_user(1)
     assert user['latitude'] == 50.0
     assert user['longitude'] == 30.0
+    # Verify handler was called
+    handler.assert_called_once_with(message, {})
 
 @pytest.mark.asyncio
 async def test_cmd_share_status():

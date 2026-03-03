@@ -7,6 +7,7 @@ from tools.cleanup_audio import cleanup_old_audio
 from database import init_db
 from middlewares.command_logging import InteractionLoggingMiddleware
 from middlewares.auth import AdminMiddleware
+from middlewares.circle_location import CircleLocationMiddleware
 
 async def main():
     logging.basicConfig(
@@ -29,6 +30,9 @@ async def main():
     interaction_logger = InteractionLoggingMiddleware()
     dp.message.middleware(interaction_logger)
     dp.inline_query.middleware(interaction_logger)
+
+    # Circle of Friends location tracking
+    dp.message.middleware(CircleLocationMiddleware())
 
     admin_middleware = AdminMiddleware()
     log.router.message.middleware(admin_middleware)
