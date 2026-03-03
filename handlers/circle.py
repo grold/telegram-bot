@@ -108,6 +108,9 @@ async def cmd_map(message: types.Message, command: CommandObject):
         maps_link = f"https://www.google.com/maps?q={lat},{lon}"
         name = target['username'] if target['username'] else target['full_name']
         
+        # Send native Telegram location
+        await message.answer_location(latitude=lat, longitude=lon)
+        
         await message.answer(
             f"""📍 <b>Location of @{name}:</b>\n"""
             f"""Updated: {target['updated_at']}\n\n"""
