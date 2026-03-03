@@ -1,6 +1,7 @@
 import os
 import logging
 import whisper
+import shutil
 from datetime import datetime
 from pathlib import Path
 from aiogram import Router, types, F
@@ -8,6 +9,11 @@ from config import AUDIO_FOLDER
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+# Check for ffmpeg
+FFMPEG_AVAILABLE = shutil.which("ffmpeg") is not None
+if not FFMPEG_AVAILABLE:
+    logger.error("ffmpeg binary not found. Audio transcription will fail. Please install ffmpeg.")
 
 # Load Whisper model (do this once at module level)
 # "base" is a good compromise between speed and accuracy.
@@ -21,6 +27,10 @@ except Exception as e:
 async def handle_audio_message(message: types.Message):
     if not model:
         await message.answer("Error: Whisper model not loaded. Transcription is unavailable.")
+        return
+
+    if not FFMPEG_AVAILABLE:
+        await message.answer("Error: ffmpeg is not installed on the server. Transcription is unavailable.")
         return
 
     # Check if it's a voice or audio file
