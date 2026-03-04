@@ -2,80 +2,101 @@ import logging
 import aiohttp
 from datetime import datetime
 from aiogram import Router, types
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-# Reliable JSON mirror of Central Bank of Russia (cbr.ru) data
-CBR_API_URL = "https://www.cbr-xml-daily.ru/daily_json.js"
+# Free Exchangerate API (no key required)
+# returns rates relative to the base currency
+API_URL_TEMPLATE = "https://open.er-api.com/v6/latest/{}"
 
 @router.message(Command("rate"))
-async def cmd_rate(message: types.Message):
-    """Handles the /rate command using CBR data."""
+async def cmd_rate(message: types.Message, command: CommandObject):
+    """
+    Handles the /rate command.
+    Usage:
+      /rate - Shows default rates (USD, EUR, JPY to RUB)
+      /rate CUR1-CUR2 - Shows rate for CUR1 to CUR2
+      /rate CUR1 CUR2 - Same as above
+    """
+    args = command.args
+    
     try:
-        # Disable SSL verification to prevent "certificate verify failed" errors in some envs
-        # We use a custom connector for this.
-        connector = aiohttp.TCPConnector(ssl=False)
-        async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(CBR_API_URL, timeout=15) as response:
-                if response.status == 200:
-                    # CBR mirror returns application/javascript sometimes, 
-                    # so we tell aiohttp to skip strict content-type check.
-                    data = await response.json(content_type=None)
-                    valute = data.get("Valute", {})
-                    date_str = data.get("Date", "")
-                    
-                    # Try to parse date for a cleaner display
-                    try:
-                        # CBR date format is usually ISO: 2026-03-04T11:30:00+03:00
-                        date_obj = datetime.fromisoformat(date_str)
-                        formatted_date = date_obj.strftime("%d.%m.%Y")
-                    except (ValueError, TypeError):
-                        formatted_date = date_str[:10] if date_str else "Unknown"
+        # Scenario 1: Custom currency pair
+        if args:
+            # parsing "CUR1-CUR2" or "CUR1 CUR2"
+            parts = args.replace("-", " ").split()
+            if len(parts) != 2:
+                await message.answer("⚠️ Usage: <code>/rate USD-EUR</code> or <code>/rate USD EUR</code>")
+                return
+            
+            base_cur = parts[0].upper()
+            target_cur = parts[1].upper()
+            
+            # Basic validation (3-4 chars usually)
+            if not (2 <= len(base_cur) <= 5) or not (2 <= len(target_cur) <= 5):
+                 await message.answer("⚠️ Invalid currency codes.")
+                 return
 
-                    # Extract rates
-                    usd = valute.get("USD", {})
-                    eur = valute.get("EUR", {})
-                    jpy = valute.get("JPY", {})
-                    
-                    response_parts = [f"<b>💰 Exchange Rates (CBR.ru {formatted_date}):</b>\n"]
-                    
-                    found_any = False
-                    
-                    # USD
-                    if usd:
-                        rate = usd.get("Value")
-                        response_parts.append(f"• <b>USD/RUB:</b> <code>{rate:.2f}</code>")
-                        found_any = True
-                    
-                    # EUR
-                    if eur:
-                        rate = eur.get("Value")
-                        response_parts.append(f"• <b>EUR/RUB:</b> <code>{rate:.2f}</code>")
-                        found_any = True
+            url = API_URL_TEMPLATE.format(base_cur)
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=10) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        rates = data.get("rates", {})
                         
-                    # JPY (Note: CBR rate is usually per 100 Yen)
-                    if jpy:
-                        nominal = jpy.get("Nominal", 1)
-                        rate = jpy.get("Value")
-                        # Normalize to 1 JPY if nominal is not 1 (e.g., 100)
-                        if nominal and nominal != 1:
-                            rate = rate / nominal
-                        response_parts.append(f"• <b>JPY/RUB:</b> <code>{rate:.2f}</code>")
-                        found_any = True
+                        if target_cur in rates:
+                            rate = rates[target_cur]
+                            date_str = data.get("time_last_update_utc", "")[:16] # simplified date
+                            
+                            await message.answer(
+                                f"<b>💱 Exchange Rate ({base_cur} -> {target_cur}):</b>\n"
+                                f"• 1 {base_cur} = <code>{rate:.4f}</code> {target_cur}\n"
+                                f"<small>Date: {date_str}</small>"
+                            )
+                        else:
+                            await message.answer(f"⚠️ Currency <code>{target_cur}</code> not found in rates for {base_cur}.")
+                    else:
+                        logger.error(f"Exchange API error: {response.status}")
+                        await message.answer("⚠️ Error fetching rates from API.")
                         
-                    if not found_any:
-                        await message.answer("⚠️ Sorry, I couldn't find the exchange rates in the response.")
-                        return
+        # Scenario 2: Default rates (USD, EUR, JPY -> RUB)
+        else:
+            # We use RUB as base to get all relevant pairs in one request
+            # 1 RUB = X USD  =>  1 USD = 1/X RUB
+            base_cur = "RUB"
+            url = API_URL_TEMPLATE.format(base_cur)
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=10) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        rates = data.get("rates", {})
+                        date_str = data.get("time_last_update_utc", "")[:16]
+                        
+                        response_parts = [f"<b>💰 Exchange Rates (Base: RUB):</b>\n"]
+                        
+                        targets = ["USD", "EUR", "JPY", "CNY"] # Added CNY as it's common now
+                        
+                        for code in targets:
+                            if code in rates:
+                                val = rates[code]
+                                if val > 0:
+                                    inverse = 1 / val
+                                    response_parts.append(f"• <b>{code}/RUB:</b> <code>{inverse:.2f}</code>")
+                        
+                        response_parts.append("\n<i>Source: open.er-api.com</i>")
+                        response_parts.append(f"<small>Updated: {date_str}</small>")
+                        response_parts.append("\n<i>Valekoo reports</i>")
+                        response_parts.append('<a href="https://t.me/supopochi">supopochi</a>')
+                        
+                        await message.answer("\n".join(response_parts))
+                    else:
+                         logger.error(f"Exchange API error: {response.status}")
+                         await message.answer("⚠️ Service unavailable.")
 
-                    response_parts.append("\n<i>Valekoo reports</i>")
-                    response_parts.append('<a href="https://t.me/supopochi">supopochi</a>')
-                    await message.answer("\n".join(response_parts))
-                else:
-                    logger.error(f"CBR API returned status {response.status}")
-                    await message.answer(f"⚠️ Sorry, the exchange rate service returned an error (Status {response.status}).")
     except Exception as e:
-        logger.exception(f"Error fetching exchange rates: {e}")
-        # Return a more descriptive error to the user for now to help diagnosis
-        await message.answer(f"⚠️ Sorry, an error occurred while fetching exchange rates: <code>{type(e).__name__}</code>")
+        logger.exception(f"Error in cmd_rate: {e}")
+        await message.answer(f"⚠️ An error occurred: <code>{e}</code>")
