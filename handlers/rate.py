@@ -8,7 +8,6 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 # Free Exchangerate API (no key required)
-# returns rates relative to the base currency
 API_URL_TEMPLATE = "https://open.er-api.com/v6/latest/{}"
 
 @router.message(Command("rate"))
@@ -23,9 +22,8 @@ async def cmd_rate(message: types.Message, command: CommandObject):
     args = command.args
     
     try:
-        # Scenario 1: Custom currency pair
         if args:
-            # parsing "CUR1-CUR2" or "CUR1 CUR2"
+            # Scenario 1: Custom currency pair
             parts = args.replace("-", " ").split()
             if len(parts) != 2:
                 await message.answer("⚠️ Usage: <code>/rate USD-EUR</code> or <code>/rate USD EUR</code>")
@@ -34,7 +32,6 @@ async def cmd_rate(message: types.Message, command: CommandObject):
             base_cur = parts[0].upper()
             target_cur = parts[1].upper()
             
-            # Basic validation (3-4 chars usually)
             if not (2 <= len(base_cur) <= 5) or not (2 <= len(target_cur) <= 5):
                  await message.answer("⚠️ Invalid currency codes.")
                  return
@@ -49,7 +46,7 @@ async def cmd_rate(message: types.Message, command: CommandObject):
                         
                         if target_cur in rates:
                             rate = rates[target_cur]
-                            date_str = data.get("time_last_update_utc", "")[:16] # simplified date
+                            date_str = data.get("time_last_update_utc", "")[:16]
                             
                             await message.answer(
                                 f"<b>💱 Exchange Rate ({base_cur} -> {target_cur}):</b>\n"
@@ -57,15 +54,12 @@ async def cmd_rate(message: types.Message, command: CommandObject):
                                 f"Date: {date_str}"
                             )
                         else:
-                            await message.answer(f"⚠️ Currency <code>{target_cur}</code> not found in rates for {base_cur}.")
+                            await message.answer(f"⚠️ Currency <code>{target_cur}</code> not found.")
                     else:
-                        logger.error(f"Exchange API error: {response.status}")
-                        await message.answer("⚠️ Error fetching rates from API.")
+                        await message.answer("⚠️ API Error.")
                         
-        # Scenario 2: Default rates (USD, EUR, JPY -> RUB)
         else:
-            # We use RUB as base to get all relevant pairs in one request
-            # 1 RUB = X USD  =>  1 USD = 1/X RUB
+            # Scenario 2: Default rates
             base_cur = "RUB"
             url = API_URL_TEMPLATE.format(base_cur)
             
@@ -76,10 +70,9 @@ async def cmd_rate(message: types.Message, command: CommandObject):
                         rates = data.get("rates", {})
                         date_str = data.get("time_last_update_utc", "")[:16]
                         
-                        response_parts = [f"<b>💰 Exchange Rates (Base: RUB):</b>\n"]
+                        response_parts = [f"<b>💰 Exchange Rates (Base: RUB):</b>"]
                         
-                        targets = ["USD", "EUR", "JPY", "CNY"] # Added CNY as it's common now
-                        
+                        targets = ["USD", "EUR", "JPY", "CNY"]
                         for code in targets:
                             if code in rates:
                                 val = rates[code]
@@ -87,16 +80,15 @@ async def cmd_rate(message: types.Message, command: CommandObject):
                                     inverse = 1 / val
                                     response_parts.append(f"• <b>{code}/RUB:</b> <code>{inverse:.2f}</code>")
                         
-                        response_parts.append("\n<i>Source: open.er-api.com</i>")
+                        response_parts.append(f"\n<i>Source: open.er-api.com</i>")
                         response_parts.append(f"Updated: {date_str}")
                         response_parts.append("\n<i>Valekoo reports</i>")
                         response_parts.append('<a href="https://t.me/supopochi">supopochi</a>')
                         
                         await message.answer("\n".join(response_parts))
                     else:
-                         logger.error(f"Exchange API error: {response.status}")
                          await message.answer("⚠️ Service unavailable.")
 
     except Exception as e:
         logger.exception(f"Error in cmd_rate: {e}")
-        await message.answer(f"⚠️ An error occurred: <code>{e}</code>")
+        await message.answer(f"⚠️ An error occurred: <code>{type(e).__name__}</code>")
