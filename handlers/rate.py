@@ -54,7 +54,7 @@ async def cmd_rate(message: types.Message, command: CommandObject):
                             await message.answer(
                                 f"<b>💱 Exchange Rate ({base_cur} -> {target_cur}):</b>\n"
                                 f"• 1 {base_cur} = <code>{rate:.4f}</code> {target_cur}\n"
-                                f"<small>Date: {date_str}</small>"
+                                f"Date: {date_str}"
                             )
                         else:
                             await message.answer(f"⚠️ Currency <code>{target_cur}</code> not found in rates for {base_cur}.")
@@ -88,7 +88,7 @@ async def cmd_rate(message: types.Message, command: CommandObject):
                                     response_parts.append(f"• <b>{code}/RUB:</b> <code>{inverse:.2f}</code>")
                         
                         response_parts.append("\n<i>Source: open.er-api.com</i>")
-                        response_parts.append(f"<small>Updated: {date_str}</small>")
+                        response_parts.append(f"Updated: {date_str}")
                         response_parts.append("\n<i>Valekoo reports</i>")
                         response_parts.append('<a href="https://t.me/supopochi">supopochi</a>')
                         
