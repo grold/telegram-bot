@@ -14,11 +14,16 @@ async def test_handle_voice_message():
     message.voice.file_id = "voice_file_id"
     message.audio = None
     
-    # Mock from_user
+    # Mock from_user and chat
     mock_user = MagicMock(spec=User)
     mock_user.id = 12345
+    mock_user.username = "testuser"
     mock_user.full_name = "Test User"
     message.from_user = mock_user
+    
+    mock_chat = MagicMock()
+    mock_chat.title = "Test Group"
+    message.chat = mock_chat
     
     # Mock bot
     bot = AsyncMock()
@@ -60,11 +65,16 @@ async def test_handle_audio_file():
     message.audio.file_id = "audio_file_id"
     message.audio.file_name = "test.mp3"
     
-    # Mock from_user
+    # Mock from_user and chat
     mock_user = MagicMock(spec=User)
     mock_user.id = 12345
+    mock_user.username = "testuser"
     mock_user.full_name = "Test User"
     message.from_user = mock_user
+    
+    mock_chat = MagicMock()
+    mock_chat.title = "Test Group"
+    message.chat = mock_chat
     
     # Mock bot
     bot = AsyncMock()

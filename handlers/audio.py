@@ -85,12 +85,30 @@ async def handle_audio_message(message: types.Message):
         return
 
     # Create directory structure: audio/YYYY-MM-DD/
-    date_str = datetime.now().strftime("%Y-%m-%d")
+    now = datetime.now()
+    date_str = now.strftime("%Y-%m-%d")
     target_dir = AUDIO_FOLDER / date_str
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    # Temporary local path for the downloaded file
-    temp_file_name = f"{message.from_user.id}_{datetime.now().strftime('%H%M%S')}.{file_ext}"
+    # Prepare file name components
+    user_part = message.from_user.username or str(message.from_user.id)
+    chat_part = message.chat.title or "private"
+    
+    if message.voice:
+        orig_name = "voice"
+    else:
+        orig_name = Path(message.audio.file_name).stem if message.audio.file_name else "audio"
+
+    # Sanitize components (remove non-alphanumeric except some allowed chars)
+    def sanitize(s):
+        return "".join(c if c.isalnum() or c in "-_" else "_" for c in s)
+
+    user_part = sanitize(user_part)
+    chat_part = sanitize(chat_part)
+    orig_name = sanitize(orig_name)
+    timestamp = now.strftime("%H%M%S")
+
+    temp_file_name = f"{user_part}-{chat_part}-{orig_name}_{timestamp}.{file_ext}"
     temp_file_path = target_dir / temp_file_name
 
     try:
