@@ -6,7 +6,7 @@ import numpy as np
 from datetime import datetime
 from pathlib import Path
 from aiogram import Router, types, F
-from transformers import AutoProcessor
+from transformers import AutoProcessor, pipeline
 from optimum.intel.openvino import OVModelForSpeechSeq2Seq
 from config import AUDIO_FOLDER
 
@@ -38,8 +38,7 @@ def load_audio(file_path: str | Path) -> np.ndarray:
         logger.error(f"Error loading audio with ffmpeg: {e}")
         raise
 
-# Load Whisper model (do this once at module level)
-# Use OpenVINO optimized model for Intel Iris Graphics
+# Load Whisper model and pipeline (do this once at module level)
 MODEL_ID = "OpenVINO/whisper-base-int8-ov"
 try:
     logger.info(f"Loading Whisper model {MODEL_ID} on Intel GPU...")
@@ -51,14 +50,23 @@ try:
         logger.warning(f"Failed to load Whisper model on Intel GPU: {e}. Falling back to CPU.")
         model = OVModelForSpeechSeq2Seq.from_pretrained(MODEL_ID, device="CPU")
         logger.info("Whisper model loaded successfully on CPU.")
+    
+    # Create pipeline for automatic chunking of long audio
+    pipe = pipeline(
+        "automatic-speech-recognition",
+        model=model,
+        tokenizer=processor.tokenizer,
+        feature_extractor=processor.feature_extractor,
+        chunk_length_s=30,
+        stride_length_s=5,
+    )
 except Exception as e:
-    logger.error(f"Failed to load Whisper model: {e}")
-    model = None
-    processor = None
+    logger.error(f"Failed to load Whisper pipeline: {e}")
+    pipe = None
 
 @router.message(F.voice | F.audio)
 async def handle_audio_message(message: types.Message):
-    if not model or not processor:
+    if not pipe:
         await message.answer("Error: Whisper model not loaded. Transcription is unavailable.")
         return
 
@@ -91,18 +99,15 @@ async def handle_audio_message(message: types.Message):
         file_info = await bot.get_file(file_id)
         await bot.download_file(file_info.file_path, destination=temp_file_path)
 
-        # Transcribe using OpenVINO Whisper
+        # Transcribe using OpenVINO Whisper Pipeline
         logger.info(f"Transcribing {temp_file_path}...")
         
-        # Load audio data
+        # Load audio data as numpy array (Whisper expects 16kHz float32)
         audio_data = load_audio(temp_file_path)
         
-        # Preprocess
-        input_features = processor(audio_data, sampling_rate=16000, return_tensors="pt").input_features
-        
-        # Generate transcription
-        predicted_ids = model.generate(input_features)
-        transcription_text = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0].strip()
+        # Generate transcription using pipeline (handles long audio)
+        result = pipe(audio_data)
+        transcription_text = result.get("text", "").strip()
 
         if not transcription_text:
             transcription_text = "[No speech detected]"
