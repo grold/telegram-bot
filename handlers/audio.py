@@ -1,10 +1,13 @@
 import os
 import logging
-import whisper
 import shutil
+import subprocess
+import numpy as np
 from datetime import datetime
 from pathlib import Path
 from aiogram import Router, types, F
+from transformers import AutoProcessor
+from optimum.intel.openvino import OVModelForSpeechSeq2Seq
 from config import AUDIO_FOLDER
 
 logger = logging.getLogger(__name__)
@@ -15,17 +18,47 @@ FFMPEG_AVAILABLE = shutil.which("ffmpeg") is not None
 if not FFMPEG_AVAILABLE:
     logger.error("ffmpeg binary not found. Audio transcription will fail. Please install ffmpeg.")
 
+def load_audio(file_path: str | Path) -> np.ndarray:
+    """
+    Load audio file and convert to 16kHz mono PCM using ffmpeg.
+    Whisper models expect 16kHz float32 mono audio.
+    """
+    command = [
+        "ffmpeg", "-i", str(file_path),
+        "-f", "f32le", "-acodec", "pcm_f32le",
+        "-ar", "16000", "-ac", "1", "-"
+    ]
+    try:
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        if process.returncode != 0:
+            raise RuntimeError(f"ffmpeg failed: {stderr.decode()}")
+        return np.frombuffer(stdout, dtype=np.float32)
+    except Exception as e:
+        logger.error(f"Error loading audio with ffmpeg: {e}")
+        raise
+
 # Load Whisper model (do this once at module level)
-# "base" is a good compromise between speed and accuracy.
+# Use OpenVINO optimized model for Intel Iris Graphics
+MODEL_ID = "OpenVINO/whisper-base-int8-ov"
 try:
-    model = whisper.load_model("base")
+    logger.info(f"Loading Whisper model {MODEL_ID} on Intel GPU...")
+    processor = AutoProcessor.from_pretrained(MODEL_ID)
+    try:
+        model = OVModelForSpeechSeq2Seq.from_pretrained(MODEL_ID, device="GPU")
+        logger.info("Whisper model loaded successfully on Intel GPU.")
+    except Exception as e:
+        logger.warning(f"Failed to load Whisper model on Intel GPU: {e}. Falling back to CPU.")
+        model = OVModelForSpeechSeq2Seq.from_pretrained(MODEL_ID, device="CPU")
+        logger.info("Whisper model loaded successfully on CPU.")
 except Exception as e:
     logger.error(f"Failed to load Whisper model: {e}")
     model = None
+    processor = None
 
 @router.message(F.voice | F.audio)
 async def handle_audio_message(message: types.Message):
-    if not model:
+    if not model or not processor:
         await message.answer("Error: Whisper model not loaded. Transcription is unavailable.")
         return
 
@@ -58,10 +91,18 @@ async def handle_audio_message(message: types.Message):
         file_info = await bot.get_file(file_id)
         await bot.download_file(file_info.file_path, destination=temp_file_path)
 
-        # Transcribe using Whisper
+        # Transcribe using OpenVINO Whisper
         logger.info(f"Transcribing {temp_file_path}...")
-        result = model.transcribe(str(temp_file_path))
-        transcription_text = result.get("text", "").strip()
+        
+        # Load audio data
+        audio_data = load_audio(temp_file_path)
+        
+        # Preprocess
+        input_features = processor(audio_data, sampling_rate=16000, return_tensors="pt").input_features
+        
+        # Generate transcription
+        predicted_ids = model.generate(input_features)
+        transcription_text = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0].strip()
 
         if not transcription_text:
             transcription_text = "[No speech detected]"

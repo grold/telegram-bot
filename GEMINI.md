@@ -11,6 +11,7 @@
 - If you need restart the bot after changes use 'systemctl --user restart telegram-bot' command.
 
 - **Technical Mandate:** Always ensure `ffmpeg` and local dependencies (like Whisper) are checked and handled gracefully in handlers.
+- **Technical Mandate:** For Whisper acceleration on Intel Iris Graphics, ensure `intel-opencl-icd` (on Linux) or latest Intel Graphics Drivers are installed. The bot uses `optimum-intel` with OpenVINO backend for this purpose.
 - **Technical Mandate:** Use triple-quoted strings (`"""..."""`) for all multi-line strings and formatted responses to prevent syntax errors from accidental newlines.
 - **Technical Mandate (Testing):** Always mock `aiogram` awaitable methods (like `message.answer`, `message.reply`, `bot.send_message`) using `AsyncMock` to avoid `TypeError`. Ensure all required attributes (e.g., `user.username`) are explicitly mocked.
 - **Technical Mandate (Git):** When committing via `run_shell_command`, avoid using backticks (`` ` ``) or special shell characters in the commit message to prevent accidental execution errors.

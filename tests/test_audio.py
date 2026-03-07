@@ -27,9 +27,16 @@ async def test_handle_voice_message():
     file_info.file_path = "path/to/voice.ogg"
     bot.get_file.return_value = file_info
     
-    # Mock Whisper model
-    with patch("handlers.audio.model") as mock_model:
-        mock_model.transcribe.return_value = {"text": "Hello world"}
+    # Mock Whisper model and processor
+    with (
+        patch("handlers.audio.model") as mock_model,
+        patch("handlers.audio.processor") as mock_processor,
+        patch("handlers.audio.load_audio") as mock_load_audio
+    ):
+        mock_load_audio.return_value = "mock_audio_data"
+        mock_processor.return_value.input_features = "mock_input_features"
+        mock_model.generate.return_value = ["mock_predicted_ids"]
+        mock_processor.batch_decode.return_value = ["Hello world"]
         
         # Mock directory creation and file writing
         with (
@@ -41,7 +48,7 @@ async def test_handle_voice_message():
             await handle_audio_message(message)
             
             # Verify transcription was called
-            mock_model.transcribe.assert_called_once()
+            mock_model.generate.assert_called_once()
             # Verify response was sent
             message.reply.assert_called_once_with("🎤 Transcription for Test User:\n\nHello world")
 
@@ -69,9 +76,16 @@ async def test_handle_audio_file():
     file_info.file_path = "path/to/test.mp3"
     bot.get_file.return_value = file_info
     
-    # Mock Whisper model
-    with patch("handlers.audio.model") as mock_model:
-        mock_model.transcribe.return_value = {"text": "Audio transcription test"}
+    # Mock Whisper model and processor
+    with (
+        patch("handlers.audio.model") as mock_model,
+        patch("handlers.audio.processor") as mock_processor,
+        patch("handlers.audio.load_audio") as mock_load_audio
+    ):
+        mock_load_audio.return_value = "mock_audio_data"
+        mock_processor.return_value.input_features = "mock_input_features"
+        mock_model.generate.return_value = ["mock_predicted_ids"]
+        mock_processor.batch_decode.return_value = ["Audio transcription test"]
         
         # Mock directory creation and file writing
         with (
@@ -82,6 +96,6 @@ async def test_handle_audio_file():
             await handle_audio_message(message)
             
             # Verify transcription was called
-            mock_model.transcribe.assert_called_once()
+            mock_model.generate.assert_called_once()
             # Verify response was sent
             message.reply.assert_called_once_with("🎤 Transcription for Test User:\n\nAudio transcription test")
