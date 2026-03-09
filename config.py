@@ -30,6 +30,7 @@ def get_version():
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+WINDY_API_KEY = os.getenv("WINDY_API_KEY")
 TOP_NUM_LINES = int(os.getenv("TOP_NUM_LINES", "10"))
 LOG_NUM_LINES = int(os.getenv("LOG_NUM_LINES", "10"))
 AUDIO_FOLDER = Path(os.getenv("AUDIO_FOLDER", "audio"))

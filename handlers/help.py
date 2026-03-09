@@ -18,6 +18,7 @@ async def cmd_help(message: types.Message):
         "/weather [city] - Current weather or live location\n"
         "/forecast [city] - 5-day weather forecast\n"
         "/rate [CUR1-CUR2] - Exchange rates (default: USD, EUR to RUB)\n"
+        "/webcams city [name] - Find webcam in a city\n"
         "<b>📍 Circle of Friends:</b>\n"
         "/share [on|off|update|status] - Manage location sharing\n"
         "/map [list|username] - See mutual friends on a map\n"
