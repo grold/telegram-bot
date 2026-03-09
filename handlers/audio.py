@@ -136,7 +136,7 @@ async def handle_audio_message(message: types.Message):
             f.write(transcription_text)
 
         # Send response to group
-        response = f"🎤 Transcription for {message.from_user.full_name}:\n\n{transcription_text}"
+        response = f"🎤 Transcription for {message.from_user.full_name}:\n\n<blockquote expandable>{transcription_text}</blockquote>"
         await message.reply(response)
 
     except Exception as e:
