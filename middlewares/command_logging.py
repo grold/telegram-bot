@@ -67,7 +67,8 @@ class InteractionLoggingMiddleware(BaseMiddleware):
             message_id=message_id,
             content=content_desc,
             duration_ms=duration_ms,
-            bot_version=BOT_VERSION
+            bot_version=BOT_VERSION,
+            chat_username=getattr(chat, "username", None) if chat else None
         ))
         
         return result

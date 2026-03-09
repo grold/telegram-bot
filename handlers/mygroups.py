@@ -21,10 +21,22 @@ async def cmd_mygroups(message: types.Message):
         for group in groups:
             chat_id = group['chat_id']
             title = group['chat_title'] or "Unknown Title"
+            username = group['chat_username']
             first_seen = group['first_seen']
             last_seen = group['last_seen']
             
-            response_lines.append(f"• <b>{title}</b> (ID: <code>{chat_id}</code>)\n  First seen: {first_seen}\n  Last seen: {last_seen}")
+            # Link generation
+            link = None
+            if username:
+                link = f"https://t.me/{username}"
+            elif str(chat_id).startswith("-100"):
+                # Supergroup internal ID for links: remove -100 prefix
+                internal_id = str(chat_id)[4:]
+                link = f"https://t.me/c/{internal_id}/1"
+            
+            title_display = f"<a href='{link}'>{title}</a>" if link else f"<b>{title}</b>"
+            
+            response_lines.append(f"• {title_display} (ID: <code>{chat_id}</code>)\n  First seen: {first_seen}\n  Last seen: {last_seen}")
 
         # Join lines and handle potential message length limit (simple check)
         response_text = "\n".join(response_lines)
