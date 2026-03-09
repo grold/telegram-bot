@@ -21,9 +21,10 @@ async def cmd_mygroups(message: types.Message):
         for group in groups:
             chat_id = group['chat_id']
             title = group['chat_title'] or "Unknown Title"
+            first_seen = group['first_seen']
             last_seen = group['last_seen']
             
-            response_lines.append(f"• <b>{title}</b> (ID: <code>{chat_id}</code>)\n  Last seen: {last_seen}")
+            response_lines.append(f"• <b>{title}</b> (ID: <code>{chat_id}</code>)\n  First seen: {first_seen}\n  Last seen: {last_seen}")
 
         # Join lines and handle potential message length limit (simple check)
         response_text = "\n".join(response_lines)

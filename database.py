@@ -143,7 +143,7 @@ def get_known_groups():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT chat_id, chat_title, MAX(timestamp) as last_seen 
+        SELECT chat_id, chat_title, MIN(timestamp) as first_seen, MAX(timestamp) as last_seen 
         FROM logs 
         WHERE chat_type IN ('group', 'supergroup') 
         GROUP BY chat_id 
