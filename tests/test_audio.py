@@ -14,11 +14,16 @@ async def test_handle_voice_message():
     message.voice.file_id = "voice_file_id"
     message.audio = None
     
-    # Mock from_user
+    # Mock from_user and chat
     mock_user = MagicMock(spec=User)
     mock_user.id = 12345
+    mock_user.username = "testuser"
     mock_user.full_name = "Test User"
     message.from_user = mock_user
+    
+    mock_chat = MagicMock()
+    mock_chat.title = "Test Group"
+    message.chat = mock_chat
     
     # Mock bot
     bot = AsyncMock()
@@ -27,9 +32,13 @@ async def test_handle_voice_message():
     file_info.file_path = "path/to/voice.ogg"
     bot.get_file.return_value = file_info
     
-    # Mock Whisper model
-    with patch("handlers.audio.model") as mock_model:
-        mock_model.transcribe.return_value = {"text": "Hello world"}
+    # Mock Whisper pipeline and load_audio
+    with (
+        patch("handlers.audio.pipe") as mock_pipe,
+        patch("handlers.audio.load_audio") as mock_load_audio
+    ):
+        mock_load_audio.return_value = "mock_audio_data"
+        mock_pipe.return_value = {"text": "Hello world"}
         
         # Mock directory creation and file writing
         with (
@@ -40,8 +49,8 @@ async def test_handle_voice_message():
             
             await handle_audio_message(message)
             
-            # Verify transcription was called
-            mock_model.transcribe.assert_called_once()
+            # Verify pipeline was called
+            mock_pipe.assert_called_once_with("mock_audio_data")
             # Verify response was sent
             message.reply.assert_called_once_with("🎤 Transcription for Test User:\n\nHello world")
 
@@ -56,11 +65,16 @@ async def test_handle_audio_file():
     message.audio.file_id = "audio_file_id"
     message.audio.file_name = "test.mp3"
     
-    # Mock from_user
+    # Mock from_user and chat
     mock_user = MagicMock(spec=User)
     mock_user.id = 12345
+    mock_user.username = "testuser"
     mock_user.full_name = "Test User"
     message.from_user = mock_user
+    
+    mock_chat = MagicMock()
+    mock_chat.title = "Test Group"
+    message.chat = mock_chat
     
     # Mock bot
     bot = AsyncMock()
@@ -69,9 +83,13 @@ async def test_handle_audio_file():
     file_info.file_path = "path/to/test.mp3"
     bot.get_file.return_value = file_info
     
-    # Mock Whisper model
-    with patch("handlers.audio.model") as mock_model:
-        mock_model.transcribe.return_value = {"text": "Audio transcription test"}
+    # Mock Whisper pipeline and load_audio
+    with (
+        patch("handlers.audio.pipe") as mock_pipe,
+        patch("handlers.audio.load_audio") as mock_load_audio
+    ):
+        mock_load_audio.return_value = "mock_audio_data"
+        mock_pipe.return_value = {"text": "Audio transcription test"}
         
         # Mock directory creation and file writing
         with (
@@ -81,7 +99,7 @@ async def test_handle_audio_file():
             
             await handle_audio_message(message)
             
-            # Verify transcription was called
-            mock_model.transcribe.assert_called_once()
+            # Verify pipeline was called
+            mock_pipe.assert_called_once_with("mock_audio_data")
             # Verify response was sent
             message.reply.assert_called_once_with("🎤 Transcription for Test User:\n\nAudio transcription test")

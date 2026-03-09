@@ -1,10 +1,13 @@
 import os
 import logging
-import whisper
 import shutil
+import subprocess
+import numpy as np
 from datetime import datetime
 from pathlib import Path
 from aiogram import Router, types, F
+from transformers import AutoProcessor, pipeline
+from optimum.intel.openvino import OVModelForSpeechSeq2Seq
 from config import AUDIO_FOLDER
 
 logger = logging.getLogger(__name__)
@@ -15,17 +18,55 @@ FFMPEG_AVAILABLE = shutil.which("ffmpeg") is not None
 if not FFMPEG_AVAILABLE:
     logger.error("ffmpeg binary not found. Audio transcription will fail. Please install ffmpeg.")
 
-# Load Whisper model (do this once at module level)
-# "base" is a good compromise between speed and accuracy.
+def load_audio(file_path: str | Path) -> np.ndarray:
+    """
+    Load audio file and convert to 16kHz mono PCM using ffmpeg.
+    Whisper models expect 16kHz float32 mono audio.
+    """
+    command = [
+        "ffmpeg", "-i", str(file_path),
+        "-f", "f32le", "-acodec", "pcm_f32le",
+        "-ar", "16000", "-ac", "1", "-"
+    ]
+    try:
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        if process.returncode != 0:
+            raise RuntimeError(f"ffmpeg failed: {stderr.decode()}")
+        return np.frombuffer(stdout, dtype=np.float32)
+    except Exception as e:
+        logger.error(f"Error loading audio with ffmpeg: {e}")
+        raise
+
+# Load Whisper model and pipeline (do this once at module level)
+MODEL_ID = "OpenVINO/whisper-base-int8-ov"
 try:
-    model = whisper.load_model("base")
+    logger.info(f"Loading Whisper model {MODEL_ID} on Intel GPU...")
+    processor = AutoProcessor.from_pretrained(MODEL_ID)
+    try:
+        model = OVModelForSpeechSeq2Seq.from_pretrained(MODEL_ID, device="GPU")
+        logger.info("Whisper model loaded successfully on Intel GPU.")
+    except Exception as e:
+        logger.warning(f"Failed to load Whisper model on Intel GPU: {e}. Falling back to CPU.")
+        model = OVModelForSpeechSeq2Seq.from_pretrained(MODEL_ID, device="CPU")
+        logger.info("Whisper model loaded successfully on CPU.")
+    
+    # Create pipeline for automatic chunking of long audio
+    pipe = pipeline(
+        "automatic-speech-recognition",
+        model=model,
+        tokenizer=processor.tokenizer,
+        feature_extractor=processor.feature_extractor,
+        chunk_length_s=30,
+        stride_length_s=5,
+    )
 except Exception as e:
-    logger.error(f"Failed to load Whisper model: {e}")
-    model = None
+    logger.error(f"Failed to load Whisper pipeline: {e}")
+    pipe = None
 
 @router.message(F.voice | F.audio)
 async def handle_audio_message(message: types.Message):
-    if not model:
+    if not pipe:
         await message.answer("Error: Whisper model not loaded. Transcription is unavailable.")
         return
 
@@ -44,12 +85,30 @@ async def handle_audio_message(message: types.Message):
         return
 
     # Create directory structure: audio/YYYY-MM-DD/
-    date_str = datetime.now().strftime("%Y-%m-%d")
+    now = datetime.now()
+    date_str = now.strftime("%Y-%m-%d")
     target_dir = AUDIO_FOLDER / date_str
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    # Temporary local path for the downloaded file
-    temp_file_name = f"{message.from_user.id}_{datetime.now().strftime('%H%M%S')}.{file_ext}"
+    # Prepare file name components
+    user_part = message.from_user.username or str(message.from_user.id)
+    chat_part = message.chat.title or "private"
+    
+    if message.voice:
+        orig_name = "voice"
+    else:
+        orig_name = Path(message.audio.file_name).stem if message.audio.file_name else "audio"
+
+    # Sanitize components (remove non-alphanumeric except some allowed chars)
+    def sanitize(s):
+        return "".join(c if c.isalnum() or c in "-_" else "_" for c in s)
+
+    user_part = sanitize(user_part)
+    chat_part = sanitize(chat_part)
+    orig_name = sanitize(orig_name)
+    timestamp = now.strftime("%H%M%S")
+
+    temp_file_name = f"{user_part}-{chat_part}-{orig_name}_{timestamp}.{file_ext}"
     temp_file_path = target_dir / temp_file_name
 
     try:
@@ -58,9 +117,14 @@ async def handle_audio_message(message: types.Message):
         file_info = await bot.get_file(file_id)
         await bot.download_file(file_info.file_path, destination=temp_file_path)
 
-        # Transcribe using Whisper
+        # Transcribe using OpenVINO Whisper Pipeline
         logger.info(f"Transcribing {temp_file_path}...")
-        result = model.transcribe(str(temp_file_path))
+        
+        # Load audio data as numpy array (Whisper expects 16kHz float32)
+        audio_data = load_audio(temp_file_path)
+        
+        # Generate transcription using pipeline (handles long audio)
+        result = pipe(audio_data)
         transcription_text = result.get("text", "").strip()
 
         if not transcription_text:
@@ -72,7 +136,7 @@ async def handle_audio_message(message: types.Message):
             f.write(transcription_text)
 
         # Send response to group
-        response = f"🎤 Transcription for {message.from_user.full_name}:\n\n{transcription_text}"
+        response = f"🎤 Transcription for {message.from_user.full_name}:\n\n<blockquote expandable>{transcription_text}</blockquote>"
         await message.reply(response)
 
     except Exception as e:

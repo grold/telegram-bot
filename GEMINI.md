@@ -8,8 +8,10 @@
 - For the new feature always create a new branch, and make a pull request after the feature is ready.
 - analize error through implementation of any feature and update GEMINI.md to prevent those next time
 - When i ask to release new version increase minor version in pyproject.toml appenc\create version.md file with brief summary of the changes from the last tagges version and make a commit with a tag = version
+- If you need restart the bot after changes use 'systemctl --user restart telegram-bot' command.
 
 - **Technical Mandate:** Always ensure `ffmpeg` and local dependencies (like Whisper) are checked and handled gracefully in handlers.
+- **Technical Mandate:** For Whisper acceleration on Intel Iris Graphics, ensure `intel-opencl-icd` (on Linux) or latest Intel Graphics Drivers are installed. The bot uses `optimum-intel` with OpenVINO backend for this purpose.
 - **Technical Mandate:** Use triple-quoted strings (`"""..."""`) for all multi-line strings and formatted responses to prevent syntax errors from accidental newlines.
 - **Technical Mandate (Testing):** Always mock `aiogram` awaitable methods (like `message.answer`, `message.reply`, `bot.send_message`) using `AsyncMock` to avoid `TypeError`. Ensure all required attributes (e.g., `user.username`) are explicitly mocked. Ensure the mock object itself is properly awaited in tests.
 - **Technical Mandate (Tools):** Always use `uv run` to execute shell commands, scripts, or test runners (e.g., `uv run pytest`) to ensure the correct environment and dependencies are used.

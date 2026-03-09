@@ -13,7 +13,9 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
 - **Inline Queries**: Type `@<YourBotName> [city]` in any chat to instantly get the weather for that city. Includes auto-completion if `cities.txt` is populated.
 - **System Top (`/top`)**: Shows server resource usage utilizing the standard linux `top` command.
 - **Random Photos (`/photo`)**: Sends a randomly selected photo from the local `photos/` directory.
-- **Audio Transcription**: The bot automatically transcribes voice and audio messages sent to groups using OpenAI's Whisper model.
+- **Audio Transcription**: The bot transcribes voice and audio messages using OpenAI's Whisper model. It is optimized for **Intel Iris Graphics** using OpenVINO (`optimum-intel`).
+  - **Requirement**: Install `intel-opencl-icd` (on Linux) for GPU acceleration.
+  - **Fallback**: Automatically falls back to CPU if no compatible GPU is found.
     - Transcriptions are sent as replies to the original message.
     - Audio files and their transcriptions are saved in `audio/YYYY-MM-DD/`.
     - Automatic cleanup of old files is performed on bot startup (default: 30 days).
