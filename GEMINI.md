@@ -7,7 +7,7 @@
 - Increase patch version in pyproject.toml after each commit or feature.
 - For the new feature always create a new branch, and make a pull request after the feature is ready.
 - analize error through implementation of any feature and update GEMINI.md to prevent those next time
-- When i ask to release new version increase minor version in pyproject.toml appenc\create version.md file with brief summary of the changes from the last tagges version and make a commit with a tag = version
+- When i ask to release new version increase minor version in pyproject.toml appenc\create version.md file with brief summary of the changes from the last tagges version and make a commit with a tag = version. **Note: Always append new versions to the top of `version.md`, do not overwrite existing history.**
 - If you need restart the bot after changes use 'systemctl --user restart telegram-bot' command.
 
 - **Technical Mandate:** Always ensure `ffmpeg` and local dependencies (like Whisper) are checked and handled gracefully in handlers.
