@@ -37,6 +37,9 @@ def main():
     log_parser.add_argument("num", nargs="?", default="10", help="Number of lines")
     log_parser.add_argument("query", nargs="*", help="Search query")
 
+    # /mygroups
+    subparsers.add_parser("mygroups", help="List known groups")
+
     # /camera [screenshot|video]
     camera_parser = subparsers.add_parser("camera", help="Camera controls")
     camera_parser.add_argument("action", choices=["screenshot", "video"], default="screenshot", nargs="?")
@@ -109,6 +112,10 @@ async def execute_command(args):
         
         command = MockCommandObject(args=command_args)
         await cmd_log(message, command)
+
+    elif args.command == "mygroups":
+        from handlers.mygroups import cmd_mygroups
+        await cmd_mygroups(message)
 
     elif args.command == "camera":
         from handlers.camera import cmd_camera

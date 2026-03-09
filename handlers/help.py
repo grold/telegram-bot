@@ -27,7 +27,8 @@ async def cmd_help(message: types.Message):
         "<b>🛡️ Admin Commands:</b>\n"
         "/photo - Send a random photo\n"
         "/top - Server resource usage\n"
-        "/log [num] [query] - Recent activity logs\n\n"
+        "/log [num] [query] - Recent activity logs\n"
+        "/mygroups - List known groups\n\n"
         "<i>Note: Admin commands are restricted to authorized IDs in .auth.</i>\n\n"
         "📦 <b>GitHub:</b> https://github.com/grold/telegram-bot"
     )

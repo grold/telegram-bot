@@ -136,3 +136,19 @@ def get_user_by_username(username):
     user = cursor.fetchone()
     conn.close()
     return user
+
+def get_known_groups():
+    """Retrieves a list of groups the bot has interacted with, ordered by most recent interaction."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT chat_id, chat_title, MAX(timestamp) as last_seen 
+        FROM logs 
+        WHERE chat_type IN ('group', 'supergroup') 
+        GROUP BY chat_id 
+        ORDER BY last_seen DESC
+    ''')
+    groups = cursor.fetchall()
+    conn.close()
+    return groups
