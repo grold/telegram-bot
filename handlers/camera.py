@@ -215,7 +215,7 @@ async def overlay_weather_on_image(image_bytes: bytes, city_name: str = "Izhevsk
             overlay_draw = ImageDraw.Draw(overlay)
             overlay_draw.rectangle(
                 [x - 8, y - 8, x + tw + 8, y + th + 8],
-                fill=(0, 0, 0, 180)
+                fill=(0, 0, 0, 128)
             )
             img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
             
