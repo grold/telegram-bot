@@ -13,7 +13,8 @@
 - **Technical Mandate:** Always ensure `ffmpeg` and local dependencies (like Whisper) are checked and handled gracefully in handlers.
 - **Technical Mandate:** For Whisper acceleration on Intel Iris Graphics, ensure `intel-opencl-icd` (on Linux) or latest Intel Graphics Drivers are installed. The bot uses `optimum-intel` with OpenVINO backend for this purpose.
 - **Technical Mandate:** Use triple-quoted strings (`"""..."""`) for all multi-line strings and formatted responses to prevent syntax errors from accidental newlines.
-- **Technical Mandate (Testing):** Always mock `aiogram` awaitable methods (like `message.answer`, `message.reply`, `bot.send_message`) using `AsyncMock` to avoid `TypeError`. Ensure all required attributes (e.g., `user.username`) are explicitly mocked.
+- **Technical Mandate (Testing):** Always mock `aiogram` awaitable methods (like `message.answer`, `message.reply`, `bot.send_message`) using `AsyncMock` to avoid `TypeError`. Ensure all required attributes (e.g., `user.username`) are explicitly mocked. Ensure the mock object itself is properly awaited in tests.
+- **Technical Mandate (Tools):** Always use `uv run` to execute shell commands, scripts, or test runners (e.g., `uv run pytest`) to ensure the correct environment and dependencies are used.
 - **Technical Mandate (Git):** When committing via `run_shell_command`, avoid using backticks (`` ` ``) or special shell characters in the commit message to prevent accidental execution errors.
 - **Technical Mandate (Architecture):** Use Middlewares for all passive data tracking (like location updates, interaction logging, etc.) instead of handlers to prevent "swallowing" of updates by competing routers.
 - **Technical Mandate (Validation):** Always validate data retrieved from external sources (e.g., camera snapshots, weather APIs) before passing it to Telegram. Specifically, check that buffers/files are non-empty to avoid "Bad Request: file must be non-empty" errors.
