@@ -2,7 +2,7 @@ import logging
 import aiohttp
 from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from config import WINDY_API_KEY
 from handlers.weather import get_weather
 
@@ -14,7 +14,7 @@ WINDY_API_URL = "https://api.windy.com/webcams/api/v3"
 async def _fetch_windy(endpoint: str, params: dict = None):
     """Helper to fetch data from Windy API."""
     if not WINDY_API_KEY:
-        logger.error("WINDY_API_KEY is not set.")
+        logger.error("WINDY_API_KEY is not set in _fetch_windy.")
         return None
     
     headers = {"x-windy-api-key": WINDY_API_KEY}
@@ -36,7 +36,7 @@ async def get_webcams_list(nearby=None, country=None, category=None, limit=10, o
     """Fetches a list of webcams based on filters."""
     params = {"limit": limit, "offset": offset, "include": "images,location,categories"}
     if nearby:
-        params["nearby"] = nearby # lat,lon,radius
+        params["nearby"] = nearby
     if country:
         params["country"] = country
     if category:
@@ -73,7 +73,6 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
     args = command.args.split() if command.args else []
     
     if not args:
-        # Show help/usage
         help_text = (
             "<b>📸 Windy Webcams Commands:</b>\n\n"
             "• <code>/webcams city [name]</code> - Get a live webcam image for a city.\n"
@@ -101,7 +100,6 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
         city_query = " ".join(args[1:])
         msg = await message.answer(f"🔍 Searching for webcams in {city_query}...")
         
-        # 1. Geocode
         weather_data = await get_weather(city_name=city_query)
         if not weather_data:
             await msg.edit_text(f"❌ Could not find location: {city_query}")
@@ -110,7 +108,6 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
         lat = weather_data.get("coord", {}).get("lat")
         lon = weather_data.get("coord", {}).get("lon")
         
-        # 2. Search nearby
         limit = 1 if subcommand == "city" else 10
         webcams_data = await get_webcams_list(nearby=f"{lat},{lon},30", limit=limit)
         
@@ -136,7 +133,6 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
                 else:
                     await msg.edit_text(f"📷 Found webcam '{title}' but no image is available.")
             else:
-                # subcommand == "cities"
                 text = f"<b>📸 Webcams in {city_query}</b>\n\n"
                 for cam in webcams_data["webcams"]:
                     title = cam.get("title", "Untitled")
@@ -147,19 +143,11 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
             await msg.edit_text(f"❌ No webcams found near {city_query}.")
 
     elif subcommand == "nearby":
-
-        # Request location
-        # This part requires a separate handler for location or inline button.
-        # For simplicity in this command, we'll ask user to share location.
-        # But we can check if the message itself has location (unlikely for a command unless forwarded)
-        # So we'll prompt.
-        
         builder = InlineKeyboardBuilder()
         builder.button(text="📍 Share Location", callback_data="webcams_nearby_trigger")
         await message.answer("Click to find webcams near you:", reply_markup=builder.as_markup())
 
     elif subcommand == "list" or subcommand == "country" or subcommand == "category":
-        # Generic list handler
         kwargs = {"limit": 5}
         title_prefix = "Webcams"
         
@@ -202,16 +190,9 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
         data = await get_webcam_details(cam_id)
         
         if data:
-            # The structure for details might be directly the webcam object or {webcam: {...}}?
-            # API docs say /webcams/{id} returns the webcam object directly or wrapped?
-            # Let's assume standard Windy response wrapper usually has the object or list.
-            # Usually /webcams returns {webcams: []}. /webcams/{id} might return the object directly?
-            # Actually standard API V3 responses are often just the data. 
-            # Let's handle both.
-            cam = data if "webcamId" in data else data.get("webcam") # fallback
+            cam = data if "webcamId" in data else data.get("webcam")
             
             if not cam: 
-                 # Maybe it returned a list of 1?
                  if data.get("webcams"):
                      cam = data["webcams"][0]
             
@@ -254,11 +235,7 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
     elif subcommand == "categories":
         data = await get_categories()
         if data:
-            # data is usually a list of categories
             cats = [c.get("id") for c in data if isinstance(c, dict)] if isinstance(data, list) else []
-            # Or maybe data['categories']?
-            # Let's assume it might be a list based on "Returns a list of available categories".
-            # If wrapped:
             if isinstance(data, dict) and "categories" in data:
                 cats = [c.get("id") for c in data["categories"]]
             
@@ -272,8 +249,6 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
     elif subcommand == "countries":
         data = await get_countries()
         if data:
-            # simple list of codes?
-            # "Returns a list of country codes."
             countries = []
             if isinstance(data, list):
                 countries = [c.get("id", c.get("code")) for c in data]
@@ -281,7 +256,6 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
                 countries = [c.get("id", c.get("code")) for c in data["countries"]]
                 
             if countries:
-                # Truncate if too long
                 shown = countries[:50]
                 text = f"<b>Countries ({len(countries)}):</b>\n{', '.join(shown)}"
                 if len(countries) > 50:
@@ -335,7 +309,6 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
 @router.callback_query(F.data == "webcams_nearby_trigger")
 async def webcams_nearby_trigger(callback: types.CallbackQuery):
     """Trigger asking for location."""
-    from aiogram.utils.keyboard import ReplyKeyboardBuilder
     builder = ReplyKeyboardBuilder()
     builder.button(text="📍 Share Location", request_location=True)
     await callback.message.answer(
@@ -343,4 +316,3 @@ async def webcams_nearby_trigger(callback: types.CallbackQuery):
         reply_markup=builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
     )
     await callback.answer()
-
