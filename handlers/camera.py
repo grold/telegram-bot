@@ -12,7 +12,10 @@ from aiogram import Router, types
 from aiogram.filters import Command, CommandObject
 from aiogram.types import BufferedInputFile, FSInputFile
 from onvif import ONVIFCamera
-from config import CAMERA_IP, CAMERA_PORT, CAMERA_USER, CAMERA_PASSWORD, SCREENSHOTS_DIR, MAX_VIDEO_DURATION
+from config import (
+    CAMERA_IP, CAMERA_PORT, CAMERA_USER, CAMERA_PASSWORD, 
+    SCREENSHOTS_DIR, MAX_VIDEO_DURATION, FONT_PATH
+)
 from handlers.weather import get_weather
 
 # Disable insecure request warnings for self-signed camera certificates
@@ -183,9 +186,10 @@ async def overlay_weather_on_image(image_bytes: bytes, city_name: str = "Izhevsk
             
             # Use a smaller font size if it's multi-line to avoid taking too much space
             try:
-                # Common path for some Linux systems or fallback to load_default
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+                # Use FONT_PATH from config
+                font = ImageFont.truetype(FONT_PATH, 18)
             except Exception:
+                logger.warning(f"Could not load font at {FONT_PATH}, falling back to default.")
                 font = ImageFont.load_default()
 
             draw = ImageDraw.Draw(img)

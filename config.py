@@ -41,6 +41,7 @@ CAMERA_PORT = int(os.getenv("CAMERA_PORT", "8000"))
 CAMERA_USER = os.getenv("CAMERA_USER", "onvif_login")
 CAMERA_PASSWORD = os.getenv("CAMERA_PASSWORD", "onvif_password")
 MAX_VIDEO_DURATION = int(os.getenv("MAX_VIDEO_DURATION", "30"))
+FONT_PATH = os.getenv("FONT_PATH", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
 BOT_VERSION = get_version()
 
 if not BOT_TOKEN:
