@@ -158,9 +158,22 @@ async def overlay_weather_on_image(image_bytes: bytes, city_name: str = "Izhevsk
 
         # 2. Extract info
         city = weather_data.get("name", city_name)
-        temp = weather_data.get("main", {}).get("temp")
+        main = weather_data.get("main", {})
+        temp = main.get("temp")
+        feels_like = main.get("feels_like")
+        humidity = main.get("humidity")
         condition = weather_data.get("weather", [{}])[0].get("main", "Unknown")
-        weather_text = f"{city}: {temp}°C, {condition}"
+        wind_speed_ms = weather_data.get("wind", {}).get("speed", 0)
+        wind_speed_kmh = round(wind_speed_ms * 3.6, 1)
+
+        weather_text = (
+            f"Weather in {city}\n"
+            f"Temp: {temp}°C\n"
+            f"Feels Like: {feels_like}°C\n"
+            f"Condition: {condition}\n"
+            f"Humidity: {humidity}%\n"
+            f"Wind: {wind_speed_kmh} km/h"
+        )
 
         # 3. Process image
         with Image.open(io.BytesIO(image_bytes)) as img:
@@ -168,25 +181,26 @@ async def overlay_weather_on_image(image_bytes: bytes, city_name: str = "Izhevsk
             if img.mode != 'RGB':
                 img = img.convert('RGB')
             
-            draw = ImageDraw.Draw(img)
-            
-            # Use default font or attempt to load a system font
+            # Use a smaller font size if it's multi-line to avoid taking too much space
             try:
                 # Common path for some Linux systems or fallback to load_default
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
             except Exception:
                 font = ImageFont.load_default()
 
-            # Calculate text size and position (top-right)
-            # For load_default, we use textbbox or similar
-            if hasattr(draw, "textbbox"):
-                bbox = draw.textbbox((0, 0), weather_text, font=font)
+            draw = ImageDraw.Draw(img)
+            
+            # Calculate multi-line text size and position (top-right)
+            if hasattr(draw, "multiline_textbbox"):
+                bbox = draw.multiline_textbbox((0, 0), weather_text, font=font)
                 tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
             else:
                 # Older PIL fallback
-                tw, th = draw.textsize(weather_text, font=font)
+                lines = weather_text.split('\n')
+                tw = max(draw.textsize(line, font=font)[0] for line in lines)
+                th = sum(draw.textsize(line, font=font)[1] for line in lines) + (len(lines) - 1) * 4
 
-            padding = 10
+            padding = 15
             width, height = img.size
             x = width - tw - padding
             y = padding
@@ -196,14 +210,14 @@ async def overlay_weather_on_image(image_bytes: bytes, city_name: str = "Izhevsk
             overlay = Image.new('RGBA', img.size, (255, 255, 255, 0))
             overlay_draw = ImageDraw.Draw(overlay)
             overlay_draw.rectangle(
-                [x - 5, y - 5, x + tw + 5, y + th + 5],
-                fill=(0, 0, 0, 160)
+                [x - 8, y - 8, x + tw + 8, y + th + 8],
+                fill=(0, 0, 0, 180)
             )
             img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
             
-            # Draw text on the composited image
+            # Draw multi-line text on the composited image
             draw = ImageDraw.Draw(img)
-            draw.text((x, y), weather_text, font=font, fill=(255, 255, 255))
+            draw.multiline_text((x, y), weather_text, font=font, fill=(255, 255, 255), spacing=4)
 
             # Save back to bytes
             output = io.BytesIO()

@@ -18,8 +18,13 @@ async def test_overlay_weather_on_image_success():
     # Mock get_weather
     mock_weather_data = {
         "name": "Izhevsk",
-        "main": {"temp": 10},
-        "weather": [{"main": "Clear"}]
+        "main": {
+            "temp": 10,
+            "feels_like": 8,
+            "humidity": 65
+        },
+        "weather": [{"main": "Clear"}],
+        "wind": {"speed": 5}
     }
     
     with patch("handlers.camera.get_weather", new_callable=AsyncMock) as mock_get_weather:
