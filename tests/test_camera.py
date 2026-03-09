@@ -2,8 +2,50 @@ import pytest
 import requests
 from unittest.mock import AsyncMock, MagicMock, patch, mock_open, ANY
 from aiogram.types import Message, User
-from handlers.camera import cmd_camera
+from handlers.camera import cmd_camera, overlay_weather_on_image
 from pathlib import Path
+from PIL import Image
+import io
+
+@pytest.mark.asyncio
+async def test_overlay_weather_on_image_success():
+    # Create a small blank image
+    img = Image.new('RGB', (100, 100), color='red')
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='JPEG')
+    image_bytes = img_byte_arr.getvalue()
+
+    # Mock get_weather
+    mock_weather_data = {
+        "name": "Izhevsk",
+        "main": {"temp": 10},
+        "weather": [{"main": "Clear"}]
+    }
+    
+    with patch("handlers.camera.get_weather", new_callable=AsyncMock) as mock_get_weather:
+        mock_get_weather.return_value = mock_weather_data
+        
+        result_bytes = await overlay_weather_on_image(image_bytes, city_name="Izhevsk")
+        
+        # Verify it's still an image and different from original
+        assert isinstance(result_bytes, bytes)
+        assert result_bytes != image_bytes
+        
+        # Verify it can be opened
+        with Image.open(io.BytesIO(result_bytes)) as result_img:
+            assert result_img.size == (100, 100)
+
+@pytest.mark.asyncio
+async def test_overlay_weather_on_image_fetch_fail():
+    image_bytes = b"fake_image_content"
+    
+    with patch("handlers.camera.get_weather", new_callable=AsyncMock) as mock_get_weather:
+        mock_get_weather.return_value = None
+        
+        result_bytes = await overlay_weather_on_image(image_bytes, city_name="Izhevsk")
+        
+        # Should return original bytes if weather fetch fails
+        assert result_bytes == image_bytes
 
 @pytest.mark.asyncio
 async def test_cmd_camera_screenshot_uri_success():

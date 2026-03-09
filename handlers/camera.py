@@ -5,12 +5,15 @@ import asyncio
 import requests
 import urllib3
 from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont
+import io
 from requests.auth import HTTPDigestAuth, HTTPBasicAuth
 from aiogram import Router, types
 from aiogram.filters import Command, CommandObject
 from aiogram.types import BufferedInputFile, FSInputFile
 from onvif import ONVIFCamera
 from config import CAMERA_IP, CAMERA_PORT, CAMERA_USER, CAMERA_PASSWORD, SCREENSHOTS_DIR, MAX_VIDEO_DURATION
+from handlers.weather import get_weather
 
 # Disable insecure request warnings for self-signed camera certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -144,6 +147,73 @@ async def record_rtsp_video(rtsp_uri: str, duration: int, output_path: os.PathLi
         logger.error(f"RTSP video record exception: {e}")
         return False
 
+async def overlay_weather_on_image(image_bytes: bytes, city_name: str = "Izhevsk"):
+    """Fetches weather for the city and overlays it on the image."""
+    try:
+        # 1. Fetch weather
+        weather_data = await get_weather(city_name=city_name)
+        if not weather_data:
+            logger.warning(f"Could not fetch weather for {city_name} for overlay.")
+            return image_bytes
+
+        # 2. Extract info
+        city = weather_data.get("name", city_name)
+        temp = weather_data.get("main", {}).get("temp")
+        condition = weather_data.get("weather", [{}])[0].get("main", "Unknown")
+        weather_text = f"{city}: {temp}°C, {condition}"
+
+        # 3. Process image
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            # Ensure it's in RGB (needed for some JPEG variations)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            draw = ImageDraw.Draw(img)
+            
+            # Use default font or attempt to load a system font
+            try:
+                # Common path for some Linux systems or fallback to load_default
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+            except Exception:
+                font = ImageFont.load_default()
+
+            # Calculate text size and position (top-right)
+            # For load_default, we use textbbox or similar
+            if hasattr(draw, "textbbox"):
+                bbox = draw.textbbox((0, 0), weather_text, font=font)
+                tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            else:
+                # Older PIL fallback
+                tw, th = draw.textsize(weather_text, font=font)
+
+            padding = 10
+            width, height = img.size
+            x = width - tw - padding
+            y = padding
+
+            # Draw background box for readability (semi-transparent black)
+            # Create a separate layer for transparency
+            overlay = Image.new('RGBA', img.size, (255, 255, 255, 0))
+            overlay_draw = ImageDraw.Draw(overlay)
+            overlay_draw.rectangle(
+                [x - 5, y - 5, x + tw + 5, y + th + 5],
+                fill=(0, 0, 0, 160)
+            )
+            img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
+            
+            # Draw text on the composited image
+            draw = ImageDraw.Draw(img)
+            draw.text((x, y), weather_text, font=font, fill=(255, 255, 255))
+
+            # Save back to bytes
+            output = io.BytesIO()
+            img.save(output, format="JPEG", quality=95)
+            return output.getvalue()
+
+    except Exception as e:
+        logger.error(f"Error overlaying weather on image: {e}")
+        return image_bytes
+
 @router.message(Command("camera"))
 async def cmd_camera(message: types.Message, command: CommandObject):
     """Handles the /camera screenshot and /camera video [sec] commands."""
@@ -187,7 +257,11 @@ async def cmd_camera(message: types.Message, command: CommandObject):
                 logger.info("Falling back to RTSP capture...")
                 image_content = await capture_rtsp_frame(rtsp_uri)
 
-            # 3. Save and Send
+            # 3. Add Weather Overlay (NEW)
+            if image_content:
+                image_content = await overlay_weather_on_image(image_content, city_name="Izhevsk")
+
+            # 4. Save and Send
             if image_content:
                 # Ensure directory exists
                 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
