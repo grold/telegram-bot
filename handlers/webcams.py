@@ -76,7 +76,8 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
         # Show help/usage
         help_text = (
             "<b>📸 Windy Webcams Commands:</b>\n\n"
-            "• <code>/webcams city [name]</code> - Get a live webcam for a city.\n"
+            "• <code>/webcams city [name]</code> - Get a live webcam image for a city.\n"
+            "• <code>/webcams cities [name]</code> - List webcam IDs available in a city.\n"
             "• <code>/webcams nearby</code> - Get webcams near your location.\n"
             "• <code>/webcams country [code]</code> - List webcams in a country (e.g., US, DE).\n"
             "• <code>/webcams category [cat]</code> - List webcams in a category.\n"
@@ -92,9 +93,9 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
 
     subcommand = args[0].lower()
     
-    if subcommand == "city":
+    if subcommand in ["city", "cities"]:
         if len(args) < 2:
-            await message.answer("Please provide a city name: <code>/webcams city London</code>")
+            await message.answer(f"Please provide a city name: <code>/webcams {subcommand} London</code>")
             return
         
         city_query = " ".join(args[1:])
@@ -110,33 +111,43 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
         lon = weather_data.get("coord", {}).get("lon")
         
         # 2. Search nearby
-        # Radius 30km
-        webcams_data = await get_webcams_list(nearby=f"{lat},{lon},30", limit=1)
+        limit = 1 if subcommand == "city" else 10
+        webcams_data = await get_webcams_list(nearby=f"{lat},{lon},30", limit=limit)
         
         if webcams_data and webcams_data.get("webcams"):
-            cam = webcams_data["webcams"][0]
-            title = cam.get("title", "Unknown Webcam")
-            images = cam.get("images", {}).get("current", {})
-            preview_url = images.get("preview") or images.get("thumbnail") or images.get("icon")
-            
-            city_name = cam.get("location", {}).get("city", city_query)
-            country = cam.get("location", {}).get("country", "")
-            
-            caption = (
-                f"<b>📸 {title}</b>\n"
-                f"📍 {city_name}, {country}\n"
-                f"🆔 <code>{cam['webcamId']}</code>"
-            )
-            
-            if preview_url:
-                await message.answer_photo(preview_url, caption=caption)
-                await msg.delete()
+            if subcommand == "city":
+                cam = webcams_data["webcams"][0]
+                title = cam.get("title", "Unknown Webcam")
+                images = cam.get("images", {}).get("current", {})
+                preview_url = images.get("preview") or images.get("thumbnail") or images.get("icon")
+                
+                city_name = cam.get("location", {}).get("city", city_query)
+                country = cam.get("location", {}).get("country", "")
+                
+                caption = (
+                    f"<b>📸 {title}</b>\n"
+                    f"📍 {city_name}, {country}\n"
+                    f"🆔 <code>{cam['webcamId']}</code>"
+                )
+                
+                if preview_url:
+                    await message.answer_photo(preview_url, caption=caption)
+                    await msg.delete()
+                else:
+                    await msg.edit_text(f"📷 Found webcam '{title}' but no image is available.")
             else:
-                await msg.edit_text(f"📷 Found webcam '{title}' but no image is available.")
+                # subcommand == "cities"
+                text = f"<b>📸 Webcams in {city_query}</b>\n\n"
+                for cam in webcams_data["webcams"]:
+                    title = cam.get("title", "Untitled")
+                    cam_id = cam.get("webcamId")
+                    text += f"📷 <b>{title}</b>\n🆔 <code>{cam_id}</code>\n/webcams id {cam_id}\n\n"
+                await msg.edit_text(text)
         else:
             await msg.edit_text(f"❌ No webcams found near {city_query}.")
 
     elif subcommand == "nearby":
+
         # Request location
         # This part requires a separate handler for location or inline button.
         # For simplicity in this command, we'll ask user to share location.
@@ -207,12 +218,19 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
             if cam:
                 title = cam.get("title", "Unknown")
                 images = cam.get("images", {}).get("current", {})
-                preview_url = images.get("preview")
+                preview_url = images.get("preview") or images.get("thumbnail") or images.get("icon")
                 
                 player = cam.get("player", {})
-                day = player.get("day", {}).get("embed")
-                live = player.get("live", {}).get("embed")
-                player_link = live or day or ""
+                
+                def get_player_link(p_dict, key):
+                    val = p_dict.get(key, "")
+                    if isinstance(val, dict):
+                        return val.get("embed", "")
+                    return val if isinstance(val, str) else ""
+
+                day_link = get_player_link(player, "day")
+                live_link = get_player_link(player, "live")
+                player_link = live_link or day_link or ""
                 
                 caption = (
                     f"<b>📷 {title}</b>\n"
@@ -229,6 +247,7 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
                     await message.answer(caption)
             else:
                 await message.answer("Webcam details not found.")
+
         else:
             await message.answer("Failed to fetch webcam details.")
 

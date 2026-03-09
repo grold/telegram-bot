@@ -95,20 +95,51 @@ async def test_cmd_webcams_list(mock_get_list, message_mock, command_mock):
     assert "Beach Cam" in message_mock.answer.call_args[0][0]
 
 @pytest.mark.asyncio
+@patch("handlers.webcams.get_weather")
+@patch("handlers.webcams.get_webcams_list")
+async def test_cmd_webcams_cities(mock_get_list, mock_get_weather, message_mock, command_mock):
+    command_mock.args = "cities London"
+    
+    mock_get_weather.return_value = {
+        "coord": {"lat": 51.5074, "lon": -0.1278},
+        "name": "London"
+    }
+    
+    mock_get_list.return_value = {
+        "webcams": [
+            {"webcamId": "1", "title": "Cam 1"},
+            {"webcamId": "2", "title": "Cam 2"}
+        ]
+    }
+    
+    msg_mock = AsyncMock()
+    message_mock.answer.return_value = msg_mock
+    
+    await cmd_webcams(message_mock, command_mock)
+    
+    msg_mock.edit_text.assert_called()
+    assert "Cam 1" in msg_mock.edit_text.call_args[0][0]
+    assert "Cam 2" in msg_mock.edit_text.call_args[0][0]
+
+@pytest.mark.asyncio
 @patch("handlers.webcams.get_webcam_details")
-async def test_cmd_webcams_id(mock_get_details, message_mock, command_mock):
+async def test_cmd_webcams_id_fix(mock_get_details, message_mock, command_mock):
     command_mock.args = "id 12345"
     
+    # Test with string player URLs (the fix) and images
     mock_get_details.return_value = {
         "webcamId": "12345",
         "title": "Test Cam",
         "status": "active",
         "location": {"city": "Test City", "country": "TC"},
-        "player": {"day": {"embed": "http://player.url"}}
+        "images": {"current": {"preview": "http://example.com/p.jpg"}},
+        "player": {"day": "http://player.url/day", "live": "http://player.url/live"}
     }
     
     await cmd_webcams(message_mock, command_mock)
     
-    mock_get_details.assert_called_with("12345")
-    message_mock.answer.assert_called() # or answer_photo if preview exists, here no preview so answer text
-    assert "Test Cam" in message_mock.answer.call_args[0][0]
+    message_mock.answer_photo.assert_called()
+    assert "Watch Live/Timelapse" in message_mock.answer_photo.call_args[1]["caption"]
+    assert "http://player.url/live" in message_mock.answer_photo.call_args[1]["caption"]
+
+
