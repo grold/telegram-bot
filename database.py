@@ -35,19 +35,27 @@ def init_db():
             bot_version TEXT
         )
     ''')
+    
+    # Simple migration: Add chat_username if it doesn't exist
+    try:
+        cursor.execute('ALTER TABLE logs ADD COLUMN chat_username TEXT')
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
+
     conn.commit()
     conn.close()
 
-def add_interaction_log(user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version):
+def add_interaction_log(user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username=None):
     """Adds a new interaction log entry to the database."""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO logs (
             user_id, username, full_name, chat_id, chat_type, chat_title, 
-            message_id, content, duration_ms, bot_version
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version))
+            message_id, content, duration_ms, bot_version, chat_username
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username))
     conn.commit()
     conn.close()
 
@@ -143,7 +151,7 @@ def get_known_groups():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT chat_id, chat_title, MIN(timestamp) as first_seen, MAX(timestamp) as last_seen 
+        SELECT chat_id, chat_title, chat_username, MIN(timestamp) as first_seen, MAX(timestamp) as last_seen 
         FROM logs 
         WHERE chat_type IN ('group', 'supergroup') 
         GROUP BY chat_id 
