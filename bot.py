@@ -56,7 +56,6 @@ async def main():
     from handlers import webcams
     dp.include_router(webcams.router)
     dp.include_router(group.router) # Moved before auto_reply.router
-
     dp.include_router(log.router) # Moved before auto_reply.router
     dp.include_router(audio.router)
     dp.include_router(circle.router)
