@@ -10,6 +10,7 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 WINDY_API_URL = "https://api.windy.com/webcams/api/v3"
+DEFAULT_WEBCAM_RADIUS_KM = 30
 
 
 class WindyAPIError(Exception):
@@ -20,8 +21,7 @@ class WindyAPIError(Exception):
 async def _fetch_windy(endpoint: str, params: dict = None):
     """Helper to fetch data from Windy API."""
     if not WINDY_API_KEY:
-        logger.error("WINDY_API_KEY is not set in _fetch_windy.")
-        return None
+        raise WindyAPIError("WINDY_API_KEY is not set in _fetch_windy.")
 
     headers = {"x-windy-api-key": WINDY_API_KEY}
     url = f"{WINDY_API_URL}{endpoint}"
@@ -100,47 +100,57 @@ async def _handle_webcams_city(message: types.Message, subcommand: str, args: li
     city_query = " ".join(args[1:])
     msg = await message.answer(f"🔍 Searching for webcams in {city_query}...")
 
-    weather_data = await get_weather(city_name=city_query)
-    if not weather_data:
-        await msg.edit_text(f"❌ Could not find location: {city_query}")
-        return
+    try:
+        weather_data = await get_weather(city_name=city_query)
+        if not weather_data:
+            await msg.edit_text(f"❌ Could not find location: {city_query}")
+            return
 
-    lat = weather_data.get("coord", {}).get("lat")
-    lon = weather_data.get("coord", {}).get("lon")
+        lat = weather_data.get("coord", {}).get("lat")
+        lon = weather_data.get("coord", {}).get("lon")
 
-    limit = 1 if subcommand == "city" else 10
-    webcams_data = await get_webcams_list(nearby=f"{lat},{lon},30", limit=limit)
+        limit = 1 if subcommand == "city" else 10
+        webcams_data = await get_webcams_list(
+            nearby=f"{lat},{lon},{DEFAULT_WEBCAM_RADIUS_KM}",
+            limit=limit
+        )
 
-    if webcams_data and webcams_data.get("webcams"):
-        if subcommand == "city":
-            cam = webcams_data["webcams"][0]
-            title = cam.get("title", "Unknown Webcam")
-            images = cam.get("images", {}).get("current", {})
-            preview_url = images.get("preview") or images.get("thumbnail") or images.get("icon")
+        if webcams_data and webcams_data.get("webcams"):
+            if subcommand == "city":
+                cam = webcams_data["webcams"][0]
+                title = cam.get("title", "Unknown Webcam")
+                images = cam.get("images", {}).get("current", {})
+                preview_url = images.get("preview") or images.get("thumbnail") or images.get("icon")
 
-            city_name = cam.get("location", {}).get("city", city_query)
-            country = cam.get("location", {}).get("country", "")
+                city_name = cam.get("location", {}).get("city", city_query)
+                country = cam.get("location", {}).get("country", "")
 
-            caption = (
-                f"<b>📸 {title}</b>\n"
-                f"📍 {city_name}, {country}\n"
-                f"🆔 <code>{cam['webcamId']}</code>"
-            )
+                caption = (
+                    f"<b>📸 {title}</b>\n"
+                    f"📍 {city_name}, {country}\n"
+                    f"🆔 <code>{cam['webcamId']}</code>"
+                )
 
-            if preview_url:
-                await message.answer_photo(preview_url, caption=caption)
-                await msg.delete()
+                if preview_url:
+                    await message.answer_photo(preview_url, caption=caption)
+                    await msg.delete()
+                else:
+                    await msg.edit_text(f"📷 Found webcam '{title}' but no image is available.")
             else:
-                await msg.edit_text(f"📷 Found webcam '{title}' but no image is available.")
+                text = f"<b>📸 Webcams in {city_query}</b>\n\n"
+                for cam in webcams_data["webcams"]:
+                    title = cam.get("title", "Untitled")
+                    cam_id = cam.get("webcamId")
+                    text += f"📷 <b>{title}</b>\n🆔 <code>{cam_id}</code>\n/webcams id {cam_id}\n\n"
+                await msg.edit_text(text)
         else:
-            text = f"<b>📸 Webcams in {city_query}</b>\n\n"
-            for cam in webcams_data["webcams"]:
-                title = cam.get("title", "Untitled")
-                cam_id = cam.get("webcamId")
-                text += f"📷 <b>{title}</b>\n🆔 <code>{cam_id}</code>\n/webcams id {cam_id}\n\n"
-            await msg.edit_text(text)
-    else:
-        await msg.edit_text(f"❌ No webcams found near {city_query}.")
+            await msg.edit_text(f"❌ No webcams found near {city_query}.")
+    except WindyAPIError as e:
+        logger.error(f"Windy API Error: {e}")
+        await msg.edit_text("❌ Webcam service is currently unavailable.")
+    except Exception:
+        logger.exception("Error handling webcams city command")
+        await msg.edit_text("❌ An error occurred while searching for webcams.")
 
 
 async def _handle_webcams_list(message: types.Message, subcommand: str, args: list):
@@ -164,19 +174,26 @@ async def _handle_webcams_list(message: types.Message, subcommand: str, args: li
         kwargs["category"] = cat
         title_prefix = f"Category: {cat}"
 
-    data = await get_webcams_list(**kwargs)
-    if data and data.get("webcams"):
-        text = f"<b>{title_prefix}</b>\n\n"
-        for cam in data["webcams"]:
-            title = cam.get("title", "Untitled")
-            cam_id = cam.get("webcamId")
-            loc = cam.get("location", {})
-            city = loc.get("city", "Unknown City")
-            country = loc.get("country", "")
-            text += f"📷 <b>{title}</b> ({city}, {country})\n🆔 <code>/webcams id {cam_id}</code>\n\n"
-        await message.answer(text)
-    else:
-        await message.answer(f"No webcams found for {subcommand}.")
+    try:
+        data = await get_webcams_list(**kwargs)
+        if data and data.get("webcams"):
+            text = f"<b>{title_prefix}</b>\n\n"
+            for cam in data["webcams"]:
+                title = cam.get("title", "Untitled")
+                cam_id = cam.get("webcamId")
+                loc = cam.get("location", {})
+                city = loc.get("city", "Unknown City")
+                country = loc.get("country", "")
+                text += f"📷 <b>{title}</b> ({city}, {country})\n🆔 <code>/webcams id {cam_id}</code>\n\n"
+            await message.answer(text)
+        else:
+            await message.answer(f"No webcams found for {subcommand}.")
+    except WindyAPIError as e:
+        logger.error(f"Windy API Error: {e}")
+        await message.answer("❌ Webcam service is currently unavailable.")
+    except Exception:
+        logger.exception("Error handling webcams list command")
+        await message.answer("❌ An error occurred while fetching webcams.")
 
 
 async def _handle_webcams_id(message: types.Message, args: list):
@@ -186,13 +203,15 @@ async def _handle_webcams_id(message: types.Message, args: list):
         return
 
     cam_id = args[1]
-    data = await get_webcam_details(cam_id)
+    try:
+        data = await get_webcam_details(cam_id)
+        if not data:
+            await message.answer("Failed to fetch webcam details.")
+            return
 
-    if data:
-        cam = data if "webcamId" in data else data.get("webcam")
-
-        if not cam and data.get("webcams"):
-            cam = data["webcams"][0]
+        cam = data.get("webcam") or (data["webcams"][0] if data.get("webcams") else None)
+        if not cam and "webcamId" in data:
+            cam = data
 
         if cam:
             title = cam.get("title", "Unknown")
@@ -226,56 +245,67 @@ async def _handle_webcams_id(message: types.Message, args: list):
                 await message.answer(caption)
         else:
             await message.answer("Webcam details not found.")
-    else:
-        await message.answer("Failed to fetch webcam details.")
+    except WindyAPIError as e:
+        logger.error(f"Windy API Error: {e}")
+        await message.answer("❌ Webcam service is currently unavailable.")
+    except Exception:
+        logger.exception("Error handling webcams id command")
+        await message.answer("❌ An error occurred while fetching webcam details.")
 
 
 async def _handle_metadata(message: types.Message, subcommand: str, args: list):
     """Handles metadata subcommands: categories, countries, regions, continents."""
-    if subcommand == "categories":
-        data = await get_categories()
-        items = _parse_list_or_dict(data, "categories")
-        if items:
-            cats = [c.get("id") for c in items if isinstance(c, dict)]
-            await message.answer(f"<b>Available Categories:</b>\n{', '.join(cats)}")
-        else:
-            await message.answer("No categories found or an unexpected format was received.")
+    try:
+        if subcommand == "categories":
+            data = await get_categories()
+            items = _parse_list_or_dict(data, "categories")
+            if items:
+                cats = [c.get("id") for c in items if isinstance(c, dict)]
+                await message.answer(f"<b>Available Categories:</b>\n{', '.join(cats)}")
+            else:
+                await message.answer("No categories found or an unexpected format was received.")
 
-    elif subcommand == "countries":
-        data = await get_countries()
-        items = _parse_list_or_dict(data, "countries")
-        if items:
-            countries = [c.get("id", c.get("code")) for c in items if isinstance(c, dict)]
-            shown = countries[:50]
-            text = f"<b>Countries ({len(countries)}):</b>\n{', '.join(shown)}"
-            if len(countries) > 50:
-                text += "..."
-            await message.answer(text)
-        else:
-            await message.answer("No countries found or an unexpected format was received.")
+        elif subcommand == "countries":
+            data = await get_countries()
+            items = _parse_list_or_dict(data, "countries")
+            if items:
+                countries = [c.get("id", c.get("code")) for c in items if isinstance(c, dict)]
+                shown = countries[:50]
+                text = f"<b>Countries ({len(countries)}):</b>\n{', '.join(shown)}"
+                if len(countries) > 50:
+                    text += "..."
+                await message.answer(text)
+            else:
+                await message.answer("No countries found or an unexpected format was received.")
 
-    elif subcommand == "regions":
-        country_code = args[1] if len(args) > 1 else None
-        data = await get_regions(country_code)
-        items = _parse_list_or_dict(data, "regions")
-        if items:
-            regions = [r.get("id", r.get("name")) for r in items if isinstance(r, dict)]
-            shown = regions[:50]
-            text = f"<b>Regions:</b>\n{', '.join(shown)}"
-            if len(regions) > 50:
-                text += "..."
-            await message.answer(text)
-        else:
-            await message.answer("No regions found or an unexpected format was received.")
+        elif subcommand == "regions":
+            country_code = args[1] if len(args) > 1 else None
+            data = await get_regions(country_code)
+            items = _parse_list_or_dict(data, "regions")
+            if items:
+                regions = [r.get("id", r.get("name")) for r in items if isinstance(r, dict)]
+                shown = regions[:50]
+                text = f"<b>Regions:</b>\n{', '.join(shown)}"
+                if len(regions) > 50:
+                    text += "..."
+                await message.answer(text)
+            else:
+                await message.answer("No regions found or an unexpected format was received.")
 
-    elif subcommand == "continents":
-        data = await get_continents()
-        items = _parse_list_or_dict(data, "continents")
-        if items:
-            continents = [c.get("id", c.get("name")) for c in items if isinstance(c, dict)]
-            await message.answer(f"<b>Continents:</b>\n{', '.join(continents)}")
-        else:
-            await message.answer("No continents found or an unexpected format was received.")
+        elif subcommand == "continents":
+            data = await get_continents()
+            items = _parse_list_or_dict(data, "continents")
+            if items:
+                continents = [c.get("id", c.get("name")) for c in items if isinstance(c, dict)]
+                await message.answer(f"<b>Continents:</b>\n{', '.join(continents)}")
+            else:
+                await message.answer("No continents found or an unexpected format was received.")
+    except WindyAPIError as e:
+        logger.error(f"Windy API Error: {e}")
+        await message.answer("❌ Webcam service is currently unavailable.")
+    except Exception:
+        logger.exception(f"Error handling webcams metadata command: {subcommand}")
+        await message.answer("❌ An error occurred while fetching metadata.")
 
 
 @router.message(Command("webcams"))
@@ -285,7 +315,7 @@ async def cmd_webcams(message: types.Message, command: CommandObject):
 
     if not args:
         lines = [
-            "<b>📸 Windy Webcams Commands:</b>\n",
+            "<b>📸 Windy Webcams Commands:</b>",
             "• <code>/webcams city [name]</code> - Get a live webcam image for a city.",
             "• <code>/webcams cities [name]</code> - List webcam IDs available in a city.",
             "• <code>/webcams nearby</code> - Get webcams near your location.",
