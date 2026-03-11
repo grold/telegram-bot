@@ -156,7 +156,9 @@ async def test_cmd_webcams_api_error(mock_get_list, mock_get_weather, message_mo
     message_mock.answer.return_value = msg_mock
     
     await cmd_webcams(message_mock, command_mock)
-    msg_mock.edit_text.assert_called_with("❌ Webcam service is currently unavailable.")
+    # The decorator now handles this via message.answer instead of editing the searching message
+    message_mock.answer.assert_any_call("❌ Webcam service is currently unavailable.")
+
 
 @pytest.mark.asyncio
 @patch("handlers.webcams.get_categories")
