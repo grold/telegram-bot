@@ -1,4 +1,5 @@
 import logging
+import asyncio
 import aiohttp
 from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 WINDY_API_URL = "https://api.windy.com/webcams/api/v3"
 DEFAULT_WEBCAM_RADIUS_KM = 30
+DEFAULT_WEBCAM_LIST_LIMIT = 5
 
 
 class WindyAPIError(Exception):
@@ -28,14 +30,17 @@ async def _fetch_windy(endpoint: str, params: dict = None):
 
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.get(url, headers=headers, params=params) as response:
+            async with session.get(url, headers=headers, params=params, timeout=10) as response:
                 if response.status == 200:
                     return await response.json()
                 else:
                     logger.error(f"Windy API error {response.status} for {url}: {await response.text()}")
                     return None
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            logger.exception(f"HTTP client or timeout error fetching Windy API URL: {url}")
+            return None
         except Exception:
-            logger.exception(f"Exception fetching Windy API URL: {url}")
+            logger.exception(f"Unexpected exception fetching Windy API URL: {url}")
             return None
 
 
@@ -109,6 +114,10 @@ async def _handle_webcams_city(message: types.Message, subcommand: str, args: li
         lat = weather_data.get("coord", {}).get("lat")
         lon = weather_data.get("coord", {}).get("lon")
 
+        if lat is None or lon is None:
+            await msg.edit_text(f"❌ Could not retrieve coordinates for {city_query}.")
+            return
+
         limit = 1 if subcommand == "city" else 10
         webcams_data = await get_webcams_list(
             nearby=f"{lat},{lon},{DEFAULT_WEBCAM_RADIUS_KM}",
@@ -155,7 +164,7 @@ async def _handle_webcams_city(message: types.Message, subcommand: str, args: li
 
 async def _handle_webcams_list(message: types.Message, subcommand: str, args: list):
     """Handles 'list', 'country', and 'category' subcommands."""
-    kwargs = {"limit": 5}
+    kwargs = {"limit": DEFAULT_WEBCAM_LIST_LIMIT}
     title_prefix = "Webcams"
 
     if subcommand == "country":
@@ -263,7 +272,7 @@ async def _handle_metadata(message: types.Message, subcommand: str, args: list):
                 cats = [c.get("id") for c in items if isinstance(c, dict)]
                 await message.answer(f"<b>Available Categories:</b>\n{', '.join(cats)}")
             else:
-                await message.answer("No categories found or an unexpected format was received.")
+                await message.answer("No categories found.")
 
         elif subcommand == "countries":
             data = await get_countries()
@@ -276,7 +285,7 @@ async def _handle_metadata(message: types.Message, subcommand: str, args: list):
                     text += "..."
                 await message.answer(text)
             else:
-                await message.answer("No countries found or an unexpected format was received.")
+                await message.answer("No countries found.")
 
         elif subcommand == "regions":
             country_code = args[1] if len(args) > 1 else None
@@ -290,7 +299,7 @@ async def _handle_metadata(message: types.Message, subcommand: str, args: list):
                     text += "..."
                 await message.answer(text)
             else:
-                await message.answer("No regions found or an unexpected format was received.")
+                await message.answer("No regions found.")
 
         elif subcommand == "continents":
             data = await get_continents()
@@ -299,7 +308,7 @@ async def _handle_metadata(message: types.Message, subcommand: str, args: list):
                 continents = [c.get("id", c.get("name")) for c in items if isinstance(c, dict)]
                 await message.answer(f"<b>Continents:</b>\n{', '.join(continents)}")
             else:
-                await message.answer("No continents found or an unexpected format was received.")
+                await message.answer("No continents found.")
     except WindyAPIError as e:
         logger.error(f"Windy API Error: {e}")
         await message.answer("❌ Webcam service is currently unavailable.")
