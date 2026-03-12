@@ -9,7 +9,7 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 @router.message(Command("log"))
-async def cmd_log(message: types.Message, command: CommandObject):
+async def cmd_log(message: types.Message, command: CommandObject, user_role: str):
     """Sends the last configured number of lines of the interaction logs with optional filtering."""
     try:
         # Parse arguments: /log [num] [query]

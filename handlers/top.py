@@ -6,7 +6,7 @@ from config import TOP_NUM_LINES
 router = Router()
 
 @router.message(Command("top"))
-async def cmd_top(message: types.Message):
+async def cmd_top(message: types.Message, user_role: str):
     try:
         # Run top in batch mode, 1 iteration
         output = subprocess.check_output(["top", "-b", "-n", "1"]).decode("utf-8")
