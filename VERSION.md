@@ -1,5 +1,22 @@
 # Version History
 
+## Version 0.6.0 (2026-03-12)
+
+### New Features
+- **Windy Webcams (`/webcams`)**: Integrated Windy API v3 to explore and view live webcams globally.
+    - Search by city, country, category, or nearby location.
+    - Support for live/timelapse player links and preview images.
+- **Admin Group Management (`/mygroups`)**: New admin command to monitor groups where the bot is present.
+    - Includes clickable invite links for easier navigation.
+    - Tracks "first seen" timestamps for each group.
+
+### Improvements & Bug Fixes
+- **Refactoring**: Improved internal router registration and middleware handling.
+- **Documentation**: Renamed `version.md` to `VERSION.md` for consistency.
+- **Testing**: Added comprehensive test suite for the new `/webcams` functionality.
+
+---
+
 ## Version 0.5.0 (2026-03-09)
 
 ### New Features
