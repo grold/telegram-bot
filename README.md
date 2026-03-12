@@ -30,6 +30,30 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
 - **Auto-Replies**: The bot listens for specific keywords (e.g., "hello", "pricing", "support") and responds automatically.
 - **Logging**: Includes `InteractionLoggingMiddleware` to log all bot interactions (messages, inline queries) to `commands.log`.
 
+## Authentication & RBAC
+
+The bot features a robust, database-backed Role-Based Access Control (RBAC) system for managing permissions.
+
+### Roles
+- **OWNER**: Full access to all commands and permission management.
+- **ADMIN**: Access to sensitive tools (logs, system info, hardware) and can grant/revoke `USER` or `ADMIN` roles.
+- **USER**: Access to standard protected features once authorized.
+- **PUBLIC**: Default level for unauthorized users; allows access to basic commands (weather, forecast, etc.).
+
+### Management Commands
+Authorized users (ADMIN/OWNER) can manage permissions directly through the bot:
+- `/grant @username [USER|ADMIN|OWNER]` - Authorize a user and assign a role.
+- `/revoke @username` - Remove authorization from a user.
+- `/list_authorized` - Show all currently authorized users and their roles.
+- `/set_access [command] [level]` - Dynamically change the minimum role required for a specific command.
+
+### Migration from `.auth`
+If you are upgrading from a legacy `.auth` file system, use the provided migration tool to import your authorized users into the database:
+```bash
+uv run tools/migrate_auth.py
+```
+*Note: The first ID in your `.auth` file will be promoted to OWNER.*
+
 ## Requirements
 
 - Python >= 3.13
