@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from config import BOT_TOKEN, AUDIO_CLEANUP_DAYS
-from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, audio, circle, camera, rate, mygroups
+from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, audio, circle, camera, rate, mygroups, webcams
 from tools.cleanup_audio import cleanup_old_audio
 from database import init_db
 from middlewares.command_logging import InteractionLoggingMiddleware
@@ -53,6 +53,7 @@ async def main():
     dp.include_router(photo.router)
     dp.include_router(forecast.router) # Forecast before weather
     dp.include_router(weather.router)
+    dp.include_router(webcams.router)
     dp.include_router(group.router) # Moved before auto_reply.router
     dp.include_router(log.router) # Moved before auto_reply.router
     dp.include_router(audio.router)
@@ -66,7 +67,6 @@ async def main():
     try:
         # Resolve used update types from all registered handlers
         allowed_updates = dp.resolve_used_update_types()
-        
         await dp.start_polling(bot, allowed_updates=allowed_updates)
     finally:
         await bot.session.close()
