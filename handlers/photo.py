@@ -9,7 +9,7 @@ router = Router()
 PHOTO_DIR = "photos"
 
 @router.message(Command("photo"))
-async def cmd_photo(message: types.Message):
+async def cmd_photo(message: types.Message, user_role: str):
     if not os.path.exists(PHOTO_DIR):
         await message.answer("Photo directory does not exist.")
         return
