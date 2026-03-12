@@ -163,6 +163,75 @@ def get_user_by_username(username):
     conn.close()
     return user
 
+def get_command_min_role(command):
+    """Retrieves the minimum role required for a command."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT min_role FROM command_permissions WHERE command = ?', (command,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+def set_command_min_role(command, min_role):
+    """Sets the minimum role required for a command."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO command_permissions (command, min_role)
+        VALUES (?, ?)
+        ON CONFLICT(command) DO UPDATE SET min_role=excluded.min_role
+    ''', (command, min_role))
+    conn.commit()
+    conn.close()
+
+def grant_user_access(user_id, role, username=None, full_name=None):
+    """Grants or updates user access and role."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO users (user_id, username, full_name, role, is_authorized)
+        VALUES (?, ?, ?, ?, 1)
+        ON CONFLICT(user_id) DO UPDATE SET
+            username=COALESCE(excluded.username, users.username),
+            full_name=COALESCE(excluded.full_name, users.full_name),
+            role=excluded.role,
+            is_authorized=1
+    ''', (user_id, username, full_name, role))
+    conn.commit()
+    conn.close()
+
+def revoke_user_access(user_id):
+    """Revokes user access (sets is_authorized to 0)."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_authorized = 0 WHERE user_id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+def get_authorized_users_db():
+    """Returns a list of all authorized users."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users WHERE is_authorized = 1')
+    users = cursor.fetchall()
+    conn.close()
+    return users
+
+def ensure_user(user_id, username=None, full_name=None):
+    """Ensures a user exists in the database with basic info."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO users (user_id, username, full_name)
+        VALUES (?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            username=COALESCE(excluded.username, users.username),
+            full_name=COALESCE(excluded.full_name, users.full_name)
+    ''', (user_id, username, full_name))
+    conn.commit()
+    conn.close()
+
 def get_known_groups():
     """Retrieves a list of groups the bot has interacted with, ordered by most recent interaction."""
     conn = sqlite3.connect(DATABASE_PATH)
