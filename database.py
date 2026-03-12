@@ -13,10 +13,18 @@ def init_db():
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             full_name TEXT,
+            role TEXT DEFAULT 'USER',
+            is_authorized BOOLEAN DEFAULT 0,
             is_sharing BOOLEAN DEFAULT 0,
             latitude REAL,
             longitude REAL,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS command_permissions (
+            command TEXT PRIMARY KEY,
+            min_role TEXT NOT NULL
         )
     ''')
     cursor.execute('''
@@ -36,6 +44,16 @@ def init_db():
         )
     ''')
     
+    # Simple migration: Add role and is_authorized if they don't exist
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN role TEXT DEFAULT "USER"')
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN is_authorized BOOLEAN DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
+
     # Simple migration: Add chat_username if it doesn't exist
     try:
         cursor.execute('ALTER TABLE logs ADD COLUMN chat_username TEXT')
