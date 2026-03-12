@@ -1,6 +1,11 @@
 import os
 import sqlite3
 import logging
+import sys
+
+# Add the project root to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from database import DATABASE_PATH
 
 logger = logging.getLogger(__name__)
