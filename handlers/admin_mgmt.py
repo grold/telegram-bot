@@ -1,6 +1,7 @@
 import logging
-from aiogram import Router, types
+from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from database import (
     get_user, get_user_by_username, grant_user_access, 
     revoke_user_access, get_authorized_users_db, set_command_min_role
@@ -75,7 +76,7 @@ async def cmd_revoke(message: types.Message, command: CommandObject, user_role: 
 
 @router.message(Command("list_authorized"))
 async def cmd_list_authorized(message: types.Message, user_role: str):
-    """Handles /list_authorized command."""
+    """Handles /list_authorized command with interactive buttons."""
     if user_role not in ["ADMIN", "OWNER"]:
         return
 
@@ -84,12 +85,131 @@ async def cmd_list_authorized(message: types.Message, user_role: str):
         await message.answer("No authorized users found.")
         return
 
-    text = "<b>Authorized Users:</b>\n"
+    await message.answer("<b>Authorized Users Management:</b>")
+    
     for user in users:
         username = f"@{user['username']}" if user['username'] else f"ID: {user['user_id']}"
-        text += f"• {username} [<b>{user['role']}</b>]\n"
+        text = f"👤 {username} [<b>{user['role']}</b>]"
+        
+        builder = InlineKeyboardBuilder()
+        # Callback data format: action:user_id
+        builder.button(text="📝 Edit Role", callback_data=f"auth_role:{user['user_id']}")
+        builder.button(text="❌ Revoke", callback_data=f"auth_revoke:{user['user_id']}")
+        builder.adjust(2)
+        
+        await message.answer(text, reply_markup=builder.as_markup())
+
+@router.callback_query(F.data.startswith("auth_role:"))
+async def cb_auth_role(callback: types.CallbackQuery, user_role: str):
+    """Shows role selection buttons for a user."""
+    if user_role not in ["ADMIN", "OWNER"]:
+        await callback.answer("Unauthorized.", show_alert=True)
+        return
+
+    target_id = int(callback.data.split(":")[1])
+    target_user = get_user(target_id)
     
-    await message.answer(text)
+    if not target_user:
+        await callback.answer("User not found.")
+        return
+
+    # Check permissions
+    if target_user["role"] == "OWNER" and user_role != "OWNER":
+        await callback.answer("Only OWNER can change OWNER's role.", show_alert=True)
+        return
+
+    builder = InlineKeyboardBuilder()
+    for role in ROLES:
+        # Don't show current role
+        if role == target_user["role"]:
+            continue
+        # Only OWNER can grant OWNER
+        if role == "OWNER" and user_role != "OWNER":
+            continue
+            
+        builder.button(text=f"Set to {role}", callback_data=f"auth_set:{target_id}:{role}")
+    
+    builder.button(text="🔙 Back", callback_data=f"auth_back:{target_id}")
+    builder.adjust(1)
+    
+    username = f"@{target_user['username']}" if target_user['username'] else f"ID: {target_id}"
+    await callback.message.edit_text(
+        f"Change role for {username} (Current: {target_user['role']}):",
+        reply_markup=builder.as_markup()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("auth_set:"))
+async def cb_auth_set(callback: types.CallbackQuery, user_role: str):
+    """Applies a new role to a user."""
+    if user_role not in ["ADMIN", "OWNER"]:
+        return
+
+    _, target_id, new_role = callback.data.split(":")
+    target_id = int(target_id)
+    
+    target_user = get_user(target_id)
+    if not target_user:
+        await callback.answer("User not found.")
+        return
+
+    # Security checks
+    if new_role == "OWNER" and user_role != "OWNER":
+        await callback.answer("Only OWNER can grant OWNER role.", show_alert=True)
+        return
+    if target_user["role"] == "OWNER" and user_role != "OWNER":
+        await callback.answer("Only OWNER can modify an OWNER.", show_alert=True)
+        return
+
+    grant_user_access(target_id, new_role)
+    logger.info(f"RBAC: User {callback.from_user.id} ({user_role}) changed {target_id} role to {new_role} via UI")
+    
+    await callback.answer(f"Success! Role set to {new_role}")
+    await cb_auth_back(callback, user_role)
+
+@router.callback_query(F.data.startswith("auth_revoke:"))
+async def cb_auth_revoke(callback: types.CallbackQuery, user_role: str):
+    """Revokes a user's access."""
+    if user_role not in ["ADMIN", "OWNER"]:
+        return
+
+    target_id = int(callback.data.split(":")[1])
+    target_user = get_user(target_id)
+    
+    if not target_user:
+        await callback.answer("User not found.")
+        return
+
+    if target_user["role"] == "OWNER" and user_role != "OWNER":
+        await callback.answer("Only OWNER can revoke an OWNER.", show_alert=True)
+        return
+
+    revoke_user_access(target_id)
+    logger.info(f"RBAC: User {callback.from_user.id} ({user_role}) REVOKED {target_id} via UI")
+    
+    await callback.answer("Access revoked.")
+    await callback.message.delete()
+
+@router.callback_query(F.data.startswith("auth_back:"))
+async def cb_auth_back(callback: types.CallbackQuery, user_role: str):
+    """Returns to the user entry view."""
+    target_id = int(callback.data.split(":")[1])
+    target_user = get_user(target_id)
+    
+    if not target_user or not target_user["is_authorized"]:
+        await callback.message.delete()
+        return
+
+    username = f"@{target_user['username']}" if target_user['username'] else f"ID: {target_user['user_id']}"
+    text = f"👤 {username} [<b>{target_user['role']}</b>]"
+    
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📝 Edit Role", callback_data=f"auth_role:{target_user['user_id']}")
+    builder.button(text="❌ Revoke", callback_data=f"auth_revoke:{target_user['user_id']}")
+    builder.adjust(2)
+    
+    await callback.message.edit_text(text, reply_markup=builder.as_markup())
+    await callback.answer()
 
 @router.message(Command("set_access"))
 async def cmd_set_access(message: types.Message, command: CommandObject, user_role: str):
