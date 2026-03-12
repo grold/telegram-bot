@@ -3,6 +3,7 @@ from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, Message
 from database import get_user, ensure_user, get_command_min_role
+from config import OWNER_ID
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +41,16 @@ class AuthMiddleware(BaseMiddleware):
         ensure_user(user_info.id, user_info.username, user_info.full_name)
         user = get_user(user_info.id)
         
-        user_role = user["role"] if user and user["is_authorized"] else "PUBLIC"
+        # Hardcoded master owner from config takes precedence
+        if user_info.id == OWNER_ID:
+            user_role = "OWNER"
+            is_authorized = True
+        else:
+            user_role = user["role"] if user and user["is_authorized"] else "PUBLIC"
+            is_authorized = bool(user and user["is_authorized"])
+        
         data["user_role"] = user_role
-        data["is_authorized"] = bool(user and user["is_authorized"])
+        data["is_authorized"] = is_authorized
 
         # 2. Determine required role for the command
         command_name = None
