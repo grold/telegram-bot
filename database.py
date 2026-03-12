@@ -34,6 +34,7 @@ def init_db():
             user_id INTEGER,
             username TEXT,
             full_name TEXT,
+            user_role TEXT,
             chat_id INTEGER,
             chat_type TEXT,
             chat_title TEXT,
@@ -54,6 +55,12 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    # Simple migration: Add user_role to logs if it doesn't exist
+    try:
+        cursor.execute('ALTER TABLE logs ADD COLUMN user_role TEXT')
+    except sqlite3.OperationalError:
+        pass
+
     # Simple migration: Add chat_username if it doesn't exist
     try:
         cursor.execute('ALTER TABLE logs ADD COLUMN chat_username TEXT')
@@ -64,16 +71,16 @@ def init_db():
     conn.commit()
     conn.close()
 
-def add_interaction_log(user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username=None):
+def add_interaction_log(user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username=None, user_role=None):
     """Adds a new interaction log entry to the database."""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO logs (
             user_id, username, full_name, chat_id, chat_type, chat_title, 
-            message_id, content, duration_ms, bot_version, chat_username
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username))
+            message_id, content, duration_ms, bot_version, chat_username, user_role
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username, user_role))
     conn.commit()
     conn.close()
 

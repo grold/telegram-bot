@@ -32,17 +32,19 @@ async def cmd_grant(message: types.Message, command: CommandObject, user_role: s
 
     # Only OWNER can grant OWNER role
     if role == "OWNER" and user_role != "OWNER":
+        logger.warning(f"Unauthorized grant attempt: User {message.from_user.id} ({user_role}) tried to grant OWNER role to {username}")
         await message.answer("❌ Only the <b>OWNER</b> can grant the <b>OWNER</b> role.")
         return
 
     user = get_user_by_username(username)
     if not user:
+        logger.info(f"Grant attempt failed: User {username} not found in database")
         await message.answer(f"❌ User <b>{username}</b> not found in database. Ask them to /start first.")
         return
 
     grant_user_access(user["user_id"], role, username=username)
     await message.answer(f"✅ User <b>{username}</b> is now authorized with role <b>{role}</b>.")
-    logger.info(f"User {message.from_user.id} granted {role} to {username} ({user['user_id']})")
+    logger.info(f"RBAC: User {message.from_user.id} ({user_role}) GRANTED {role} to {username} ({user['user_id']})")
 
 @router.message(Command("revoke"))
 async def cmd_revoke(message: types.Message, command: CommandObject, user_role: str):
@@ -63,12 +65,13 @@ async def cmd_revoke(message: types.Message, command: CommandObject, user_role: 
 
     # OWNER cannot be revoked by ADMIN
     if user["role"] == "OWNER" and user_role != "OWNER":
+        logger.warning(f"Unauthorized revoke attempt: User {message.from_user.id} ({user_role}) tried to revoke OWNER {username}")
         await message.answer("❌ Only the <b>OWNER</b> can revoke another <b>OWNER</b>.")
         return
 
     revoke_user_access(user["user_id"])
     await message.answer(f"✅ User <b>{username}</b> access has been revoked.")
-    logger.info(f"User {message.from_user.id} revoked access for {username} ({user['user_id']})")
+    logger.info(f"RBAC: User {message.from_user.id} ({user_role}) REVOKED access for {username} ({user['user_id']})")
 
 @router.message(Command("list_authorized"))
 async def cmd_list_authorized(message: types.Message, user_role: str):
@@ -108,4 +111,4 @@ async def cmd_set_access(message: types.Message, command: CommandObject, user_ro
 
     set_command_min_role(cmd_to_set, level)
     await message.answer(f"✅ Access for <code>/{cmd_to_set}</code> set to <b>{level}</b>.")
-    logger.info(f"User {message.from_user.id} set access for /{cmd_to_set} to {level}")
+    logger.info(f"RBAC: User {message.from_user.id} ({user_role}) set /{cmd_to_set} access level to {level}")

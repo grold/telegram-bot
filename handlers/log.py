@@ -38,11 +38,12 @@ async def cmd_log(message: types.Message, command: CommandObject, user_role: str
         for log in logs:
             time_str = log['timestamp']
             user_display = f"@{log['username']}" if log['username'] else log['full_name']
+            role_display = f" [🛡️ {log['user_role']}]" if log.get('user_role') else ""
             chat_display = f" | 💬 {log['chat_title']}" if log['chat_title'] else ""
             bot_ver = f" [🤖 {log['bot_version']}]" if log['bot_version'] else ""
 
             entry = (
-                f"<b>📅 {time_str} | 👤 {user_display}{chat_display}</b>\n"
+                f"<b>📅 {time_str} | 👤 {user_display}{role_display}{chat_display}</b>\n"
                 f"📝 <i>{log['content']}</i> ({log['duration_ms']:.1f}ms){bot_ver}"
             )
             formatted_entries.append(entry)
