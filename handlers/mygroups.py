@@ -8,7 +8,7 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 @router.message(Command("mygroups"))
-async def cmd_mygroups(message: types.Message):
+async def cmd_mygroups(message: types.Message, user_role: str):
     """Handles the /mygroups command to list groups the bot has interacted with."""
     try:
         groups = await asyncio.to_thread(get_known_groups)

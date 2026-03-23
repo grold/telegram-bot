@@ -13,10 +13,18 @@ def init_db():
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             full_name TEXT,
+            role TEXT DEFAULT 'USER',
+            is_authorized BOOLEAN DEFAULT 0,
             is_sharing BOOLEAN DEFAULT 0,
             latitude REAL,
             longitude REAL,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS command_permissions (
+            command TEXT PRIMARY KEY,
+            min_role TEXT NOT NULL
         )
     ''')
     cursor.execute('''
@@ -26,6 +34,7 @@ def init_db():
             user_id INTEGER,
             username TEXT,
             full_name TEXT,
+            user_role TEXT,
             chat_id INTEGER,
             chat_type TEXT,
             chat_title TEXT,
@@ -36,6 +45,22 @@ def init_db():
         )
     ''')
     
+    # Simple migration: Add role and is_authorized if they don't exist
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN role TEXT DEFAULT "USER"')
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN is_authorized BOOLEAN DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
+
+    # Simple migration: Add user_role to logs if it doesn't exist
+    try:
+        cursor.execute('ALTER TABLE logs ADD COLUMN user_role TEXT')
+    except sqlite3.OperationalError:
+        pass
+
     # Simple migration: Add chat_username if it doesn't exist
     try:
         cursor.execute('ALTER TABLE logs ADD COLUMN chat_username TEXT')
@@ -46,16 +71,16 @@ def init_db():
     conn.commit()
     conn.close()
 
-def add_interaction_log(user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username=None):
+def add_interaction_log(user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username=None, user_role=None):
     """Adds a new interaction log entry to the database."""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO logs (
             user_id, username, full_name, chat_id, chat_type, chat_title, 
-            message_id, content, duration_ms, bot_version, chat_username
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username))
+            message_id, content, duration_ms, bot_version, chat_username, user_role
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username, user_role))
     conn.commit()
     conn.close()
 
@@ -144,6 +169,75 @@ def get_user_by_username(username):
     user = cursor.fetchone()
     conn.close()
     return user
+
+def get_command_min_role(command):
+    """Retrieves the minimum role required for a command."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT min_role FROM command_permissions WHERE command = ?', (command,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+def set_command_min_role(command, min_role):
+    """Sets the minimum role required for a command."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO command_permissions (command, min_role)
+        VALUES (?, ?)
+        ON CONFLICT(command) DO UPDATE SET min_role=excluded.min_role
+    ''', (command, min_role))
+    conn.commit()
+    conn.close()
+
+def grant_user_access(user_id, role, username=None, full_name=None):
+    """Grants or updates user access and role."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO users (user_id, username, full_name, role, is_authorized)
+        VALUES (?, ?, ?, ?, 1)
+        ON CONFLICT(user_id) DO UPDATE SET
+            username=COALESCE(excluded.username, users.username),
+            full_name=COALESCE(excluded.full_name, users.full_name),
+            role=excluded.role,
+            is_authorized=1
+    ''', (user_id, username, full_name, role))
+    conn.commit()
+    conn.close()
+
+def revoke_user_access(user_id):
+    """Revokes user access (sets is_authorized to 0)."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_authorized = 0 WHERE user_id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+def get_authorized_users_db():
+    """Returns a list of all authorized users."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users WHERE is_authorized = 1')
+    users = cursor.fetchall()
+    conn.close()
+    return users
+
+def ensure_user(user_id, username=None, full_name=None):
+    """Ensures a user exists in the database with basic info."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO users (user_id, username, full_name)
+        VALUES (?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            username=COALESCE(excluded.username, users.username),
+            full_name=COALESCE(excluded.full_name, users.full_name)
+    ''', (user_id, username, full_name))
+    conn.commit()
+    conn.close()
 
 def get_known_groups():
     """Retrieves a list of groups the bot has interacted with, ordered by most recent interaction."""

@@ -40,6 +40,9 @@ def main():
     # /mygroups
     subparsers.add_parser("mygroups", help="List known groups")
 
+    # /photo
+    subparsers.add_parser("photo", help="Send a random photo")
+
     # /camera [screenshot|video]
     camera_parser = subparsers.add_parser("camera", help="Camera controls")
     camera_parser.add_argument("action", choices=["screenshot", "video"], default="screenshot", nargs="?")
@@ -48,6 +51,23 @@ def main():
     # /rate [pair]
     rate_parser = subparsers.add_parser("rate", help="Exchange rates")
     rate_parser.add_argument("pair", nargs="?", help="Currency pair (e.g. USD-EUR)")
+
+    # /grant @username [role]
+    grant_parser = subparsers.add_parser("grant", help="Grant user access")
+    grant_parser.add_argument("username", help="Telegram username (with @)")
+    grant_parser.add_argument("role", nargs="?", default="USER", help="Role (USER, ADMIN, OWNER)")
+
+    # /revoke @username
+    revoke_parser = subparsers.add_parser("revoke", help="Revoke user access")
+    revoke_parser.add_argument("username", help="Telegram username (with @)")
+
+    # /list_authorized
+    subparsers.add_parser("list_authorized", help="List authorized users")
+
+    # /set_access [command] [level]
+    access_parser = subparsers.add_parser("set_access", help="Set command access level")
+    access_parser.add_argument("cmd_name", help="Command name (e.g. weather)")
+    access_parser.add_argument("level", help="Access level (PUBLIC, USER, ADMIN, OWNER)")
 
     args = parser.parse_args()
 
@@ -72,6 +92,7 @@ async def execute_command(args):
     user = MockUser(username="cli_admin", id=777)
     bot = MockBot()
     message = MockMessage(from_user=user, bot=bot)
+    user_role = "OWNER" # CLI user is OWNER by default
 
     if args.command == "start":
         from handlers.start import cmd_start
@@ -101,7 +122,7 @@ async def execute_command(args):
 
     elif args.command == "top":
         from handlers.top import cmd_top
-        await cmd_top(message)
+        await cmd_top(message, user_role=user_role)
 
     elif args.command == "log":
         from handlers.log import cmd_log
@@ -111,11 +132,15 @@ async def execute_command(args):
             command_args += " " + " ".join(args.query)
         
         command = MockCommandObject(args=command_args)
-        await cmd_log(message, command)
+        await cmd_log(message, command, user_role=user_role)
 
     elif args.command == "mygroups":
         from handlers.mygroups import cmd_mygroups
-        await cmd_mygroups(message)
+        await cmd_mygroups(message, user_role=user_role)
+
+    elif args.command == "photo":
+        from handlers.photo import cmd_photo
+        await cmd_photo(message, user_role=user_role)
 
     elif args.command == "camera":
         from handlers.camera import cmd_camera
@@ -131,6 +156,28 @@ async def execute_command(args):
         command_args = args.pair
         command = MockCommandObject(args=command_args)
         await cmd_rate(message, command)
+
+    elif args.command == "grant":
+        from handlers.admin_mgmt import cmd_grant
+        command_args = f"{args.username} {args.role}"
+        command = MockCommandObject(args=command_args)
+        await cmd_grant(message, command, user_role=user_role)
+
+    elif args.command == "revoke":
+        from handlers.admin_mgmt import cmd_revoke
+        command_args = args.username
+        command = MockCommandObject(args=command_args)
+        await cmd_revoke(message, command, user_role=user_role)
+
+    elif args.command == "list_authorized":
+        from handlers.admin_mgmt import cmd_list_authorized
+        await cmd_list_authorized(message, user_role=user_role)
+
+    elif args.command == "set_access":
+        from handlers.admin_mgmt import cmd_set_access
+        command_args = f"{args.cmd_name} {args.level}"
+        command = MockCommandObject(args=command_args)
+        await cmd_set_access(message, command, user_role=user_role)
 
 if __name__ == "__main__":
     main()

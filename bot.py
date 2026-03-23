@@ -3,11 +3,12 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from config import BOT_TOKEN, AUDIO_CLEANUP_DAYS
-from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, audio, circle, camera, rate, mygroups, webcams
+from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, audio, circle, camera, rate, mygroups, webcams, admin_mgmt
 from tools.cleanup_audio import cleanup_old_audio
+from tools.migrate_auth import migrate_auth_file
 from database import init_db
 from middlewares.command_logging import InteractionLoggingMiddleware
-from middlewares.auth import AdminMiddleware
+from middlewares.auth import AuthMiddleware
 from middlewares.circle_location import CircleLocationMiddleware
 
 async def main():
@@ -16,8 +17,9 @@ async def main():
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     )
 
-    # Initialize database
+    # Initialize database and migrate auth if needed
     init_db()
+    migrate_auth_file()
 
     # Run cleanup on startup if enabled
     if AUDIO_CLEANUP_DAYS > 0:
@@ -38,16 +40,14 @@ async def main():
     # Circle of Friends location tracking
     dp.message.middleware(CircleLocationMiddleware())
 
-    admin_middleware = AdminMiddleware()
-    log.router.message.middleware(admin_middleware)
-    photo.router.message.middleware(admin_middleware)
-    top.router.message.middleware(admin_middleware)
-    mygroups.router.message.middleware(admin_middleware)
+    # RBAC Auth Middleware
+    dp.message.middleware(AuthMiddleware())
 
     # Register routers
     dp.include_router(inline.router) # Inline queries
     dp.include_router(start.router)
     dp.include_router(help.router)
+    dp.include_router(admin_mgmt.router)
     dp.include_router(time.router)
     dp.include_router(top.router)
     dp.include_router(photo.router)

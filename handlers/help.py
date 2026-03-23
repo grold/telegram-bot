@@ -29,8 +29,13 @@ async def cmd_help(message: types.Message):
         "/photo - Send a random photo\n"
         "/top - Server resource usage\n"
         "/log [num] [query] - Recent activity logs\n"
-        "/mygroups - List known groups\n\n"
-        "<i>Note: Admin commands are restricted to authorized IDs in .auth.</i>\n\n"
+        "/mygroups - List known groups\n"
+        "<b>🔐 RBAC Management:</b>\n"
+        "/grant @user [role] - Authorize user\n"
+        "/revoke @user - Remove authorization\n"
+        "/list_authorized - Show active users\n"
+        "/set_access [cmd] [level] - Set permissions\n\n"
+        "<i>Note: Protected commands require appropriate authorization levels.</i>\n\n"
         "📦 <b>GitHub:</b> https://github.com/grold/telegram-bot"
     )
     await message.answer(help_text)

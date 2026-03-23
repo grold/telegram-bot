@@ -55,6 +55,9 @@ class InteractionLoggingMiddleware(BaseMiddleware):
         end_time = time.perf_counter()
         duration_ms = (end_time - start_time) * 1000
         
+        # Get user role if it was set by AuthMiddleware
+        user_role = data.get("user_role")
+        
         # Log to SQLite (asynchronously to avoid blocking)
         asyncio.create_task(asyncio.to_thread(
             add_interaction_log,
@@ -68,7 +71,8 @@ class InteractionLoggingMiddleware(BaseMiddleware):
             content=content_desc,
             duration_ms=duration_ms,
             bot_version=BOT_VERSION,
-            chat_username=getattr(chat, "username", None) if chat else None
+            chat_username=getattr(chat, "username", None) if chat else None,
+            user_role=user_role
         ))
         
         return result
