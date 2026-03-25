@@ -102,7 +102,7 @@ def add_interaction_log(user_id, username, full_name, chat_id, chat_type, chat_t
     conn.commit()
     conn.close()
 
-def get_recent_logs(limit=10, query=None):
+def get_recent_logs(limit=10, query=None, status_filter=None):
     """Retrieves the most recent interaction logs with optional filtering."""
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
@@ -111,15 +111,19 @@ def get_recent_logs(limit=10, query=None):
     sql = 'SELECT * FROM logs'
     params = []
     
+    conditions = []
     if query:
         # Search in username, full_name, chat_title, or content
-        sql += ''' WHERE 
-            username LIKE ? OR 
-            full_name LIKE ? OR 
-            chat_title LIKE ? OR 
-            content LIKE ? '''
+        conditions.append('''(username LIKE ? OR full_name LIKE ? OR chat_title LIKE ? OR content LIKE ?)''')
         search_term = f'%{query}%'
         params.extend([search_term, search_term, search_term, search_term])
+    
+    if status_filter:
+        conditions.append('status = ?')
+        params.append(status_filter)
+
+    if conditions:
+        sql += ' WHERE ' + ' AND '.join(conditions)
         
     sql += ' ORDER BY timestamp DESC LIMIT ?'
     params.append(limit)

@@ -12,10 +12,15 @@ logger = logging.getLogger(__name__)
 async def cmd_log(message: types.Message, command: CommandObject, user_role: str):
     """Sends the last configured number of lines of the interaction logs with optional filtering."""
     try:
-        # Parse arguments: /log [num] [query]
+        # Parse arguments: /log [num] [query] [errors]
         args = command.args.split() if command.args else []
         limit = LOG_NUM_LINES
         query = None
+        status_filter = None
+
+        if "errors" in args:
+            status_filter = "ERROR"
+            args.remove("errors")
 
         if args:
             if args[0].isdigit():
@@ -26,7 +31,7 @@ async def cmd_log(message: types.Message, command: CommandObject, user_role: str
                 query = " ".join(args)
 
         # Fetch logs from DB
-        logs = await asyncio.to_thread(get_recent_logs, limit, query)
+        logs = await asyncio.to_thread(get_recent_logs, limit, query, status_filter)
 
         if not logs:
             msg = f"Log database is empty for query: '{query}'" if query else "Log database is empty."
@@ -48,8 +53,10 @@ async def cmd_log(message: types.Message, command: CommandObject, user_role: str
             chat_display = f" | 💬 {log['chat_title']}" if log['chat_title'] else ""
             bot_ver = f" [🤖 {log['bot_version']}]" if log['bot_version'] else ""
 
+            status_icon = "✅" if log['status'] == 'SUCCESS' else "❌"
+            exc_display = f" | ⚠️ <b>{log['exception']}</b>" if log['exception'] else ""
             entry = (
-                f"<b>📅 {time_str} | 👤 {user_display}{role_display}{chat_display}</b>\n"
+                f"<b>{status_icon} {time_str} | 👤 {user_display}{role_display}{chat_display}{exc_display}</b>\n"
                 f"📝 <i>{log['content']}</i> ({log['duration_ms']:.1f}ms){bot_ver}"
             )
             formatted_entries.append(entry)
