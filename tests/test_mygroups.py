@@ -6,7 +6,7 @@ from handlers.mygroups import cmd_mygroups
 async def test_cmd_mygroups_empty():
     with patch("handlers.mygroups.get_known_groups", return_value=[]):
         message = AsyncMock()
-        await cmd_mygroups(message)
+        await cmd_mygroups(message, user_role="ADMIN")
         message.answer.assert_called_once_with("No known groups found in logs.")
 
 @pytest.mark.asyncio
@@ -17,7 +17,7 @@ async def test_cmd_mygroups_list():
     ]
     with patch("handlers.mygroups.get_known_groups", return_value=mock_groups):
         message = AsyncMock()
-        await cmd_mygroups(message)
+        await cmd_mygroups(message, user_role="ADMIN")
         message.answer.assert_called_once()
         args = message.answer.call_args[0][0]
         assert "Group A" in args

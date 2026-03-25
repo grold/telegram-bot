@@ -52,7 +52,7 @@ async def test_handle_voice_message():
             # Verify pipeline was called
             mock_pipe.assert_called_once_with("mock_audio_data")
             # Verify response was sent
-            message.reply.assert_called_once_with("🎤 Transcription for Test User:\n\nHello world")
+            message.reply.assert_called_once_with("🎤 Transcription for Test User:\n\n<blockquote expandable>Hello world</blockquote>")
 
 @pytest.mark.asyncio
 async def test_handle_audio_file():
@@ -102,4 +102,4 @@ async def test_handle_audio_file():
             # Verify pipeline was called
             mock_pipe.assert_called_once_with("mock_audio_data")
             # Verify response was sent
-            message.reply.assert_called_once_with("🎤 Transcription for Test User:\n\nAudio transcription test")
+            message.reply.assert_called_once_with("🎤 Transcription for Test User:\n\n<blockquote expandable>Audio transcription test</blockquote>")

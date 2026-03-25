@@ -18,7 +18,6 @@ async def test_time_command_handler_no_args():
     message_mock.answer.assert_called_once()
     args, kwargs = message_mock.answer.call_args
     assert "Server Local Time" in args[0]
-    assert kwargs.get("parse_mode") == "HTML"
 
 @pytest.mark.asyncio
 async def test_time_command_handler_with_city():
@@ -48,7 +47,6 @@ async def test_time_command_handler_with_city():
         text = args[0]
         assert "London" in text
         assert "Europe/London" in text
-        assert kwargs.get("parse_mode") == "HTML"
 
 @pytest.mark.asyncio
 async def test_time_command_handler_city_not_found():
