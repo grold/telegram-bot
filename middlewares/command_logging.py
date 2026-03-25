@@ -1,6 +1,8 @@
 import logging
 import asyncio
 import time
+import traceback
+import sys
 from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
@@ -48,31 +50,44 @@ class InteractionLoggingMiddleware(BaseMiddleware):
         else:
             content_desc = f"[{type(event).__name__}]"
 
-        # Execute the handler
-        result = await handler(event, data)
+        # Execute the handler with error tracking
+        status = "SUCCESS"
+        exception_name = None
+        tb_text = None
         
-        # Post-execution calculation
-        end_time = time.perf_counter()
-        duration_ms = (end_time - start_time) * 1000
-        
-        # Get user role if it was set by AuthMiddleware
-        user_role = data.get("user_role")
-        
-        # Log to SQLite (asynchronously to avoid blocking)
-        asyncio.create_task(asyncio.to_thread(
-            add_interaction_log,
-            user_id=user.id,
-            username=user.username,
-            full_name=user.full_name,
-            chat_id=chat.id if chat else None,
-            chat_type=chat.type if chat else None,
-            chat_title=getattr(chat, "title", None) if chat else None,
-            message_id=message_id,
-            content=content_desc,
-            duration_ms=duration_ms,
-            bot_version=BOT_VERSION,
-            chat_username=getattr(chat, "username", None) if chat else None,
-            user_role=user_role
-        ))
+        try:
+            result = await handler(event, data)
+        except Exception as e:
+            status = "ERROR"
+            exception_name = type(e).__name__
+            tb_text = traceback.format_exc()
+            raise e
+        finally:
+            # Post-execution calculation
+            end_time = time.perf_counter()
+            duration_ms = (end_time - start_time) * 1000
+            
+            # Get user role if it was set by AuthMiddleware
+            user_role = data.get("user_role")
+            
+            # Log to SQLite (asynchronously to avoid blocking)
+            asyncio.create_task(asyncio.to_thread(
+                add_interaction_log,
+                user_id=user.id,
+                username=user.username,
+                full_name=user.full_name,
+                chat_id=chat.id if chat else None,
+                chat_type=chat.type if chat else None,
+                chat_title=getattr(chat, "title", None) if chat else None,
+                message_id=message_id,
+                content=content_desc,
+                duration_ms=duration_ms,
+                bot_version=BOT_VERSION,
+                chat_username=getattr(chat, "username", None) if chat else None,
+                user_role=user_role,
+                status=status,
+                exception=exception_name,
+                traceback=tb_text
+            ))
         
         return result
