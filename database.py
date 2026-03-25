@@ -41,7 +41,10 @@ def init_db():
             message_id INTEGER,
             content TEXT,
             duration_ms REAL,
-            bot_version TEXT
+            bot_version TEXT,
+            status TEXT DEFAULT 'SUCCESS',
+            exception TEXT,
+            traceback TEXT
         )
     ''')
     
@@ -68,19 +71,34 @@ def init_db():
         # Column already exists
         pass
 
+    # Simple migration: Add status, exception, and traceback to logs if they don't exist
+    try:
+        cursor.execute("ALTER TABLE logs ADD COLUMN status TEXT DEFAULT 'SUCCESS'")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE logs ADD COLUMN exception TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE logs ADD COLUMN traceback TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
 
-def add_interaction_log(user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username=None, user_role=None):
+def add_interaction_log(user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username=None, user_role=None, status='SUCCESS', exception=None, traceback=None):
     """Adds a new interaction log entry to the database."""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO logs (
             user_id, username, full_name, chat_id, chat_type, chat_title, 
-            message_id, content, duration_ms, bot_version, chat_username, user_role
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username, user_role))
+            message_id, content, duration_ms, bot_version, chat_username, user_role,
+            status, exception, traceback
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (user_id, username, full_name, chat_id, chat_type, chat_title, message_id, content, duration_ms, bot_version, chat_username, user_role, status, exception, traceback))
     conn.commit()
     conn.close()
 
