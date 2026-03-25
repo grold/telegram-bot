@@ -1,3 +1,14 @@
+## Version 0.6.2 (2026-03-25)
+
+### New Features
+- **Enhanced Error Reporting**: Integrated robust error capturing into the bot's logging middleware.
+    - All handler exceptions are now caught, logged to the database with full traceback, and then re-raised.
+    - Added visual indicators (✅/❌) to the `/log` command.
+    - Added a `/log errors` filter to quickly view failed interactions.
+
+### Improvements & Bug Fixes
+- **Testing**: Fixed regression tests for `mygroups`, `time`, and `audio` handlers to align with recent RBAC and global bot property changes.
+- **Database**: Added `status`, `exception`, and `traceback` columns to the `logs` table with automatic migration.
 # Version History
 
 ## Version 0.6.0 (2026-03-12)
