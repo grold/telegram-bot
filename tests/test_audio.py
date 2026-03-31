@@ -34,7 +34,7 @@ async def test_handle_voice_message():
     
     # Mock Whisper pipeline and load_audio
     with (
-        patch("handlers.audio.pipe") as mock_pipe,
+        patch("handlers.audio._whisper_pipe") as mock_pipe,
         patch("handlers.audio.load_audio") as mock_load_audio
     ):
         mock_load_audio.return_value = "mock_audio_data"
@@ -85,7 +85,7 @@ async def test_handle_audio_file():
     
     # Mock Whisper pipeline and load_audio
     with (
-        patch("handlers.audio.pipe") as mock_pipe,
+        patch("handlers.audio._whisper_pipe") as mock_pipe,
         patch("handlers.audio.load_audio") as mock_load_audio
     ):
         mock_load_audio.return_value = "mock_audio_data"
