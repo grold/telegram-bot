@@ -2,12 +2,11 @@ import os
 import logging
 import shutil
 import subprocess
+import asyncio
 import numpy as np
 from datetime import datetime
 from pathlib import Path
 from aiogram import Router, types, F
-from transformers import AutoProcessor, pipeline
-from optimum.intel.openvino import OVModelForSpeechSeq2Seq
 from config import AUDIO_FOLDER
 
 logger = logging.getLogger(__name__)
@@ -17,6 +16,49 @@ router = Router()
 FFMPEG_AVAILABLE = shutil.which("ffmpeg") is not None
 if not FFMPEG_AVAILABLE:
     logger.error("ffmpeg binary not found. Audio transcription will fail. Please install ffmpeg.")
+
+# Global cache for the Whisper pipeline
+_whisper_pipe = None
+
+def _get_whisper_pipeline():
+    """
+    Lazy loader for the Whisper pipeline.
+    Performs heavy imports and initialization only on the first call.
+    """
+    global _whisper_pipe
+    if _whisper_pipe is not None:
+        return _whisper_pipe
+
+    try:
+        from transformers import AutoProcessor, pipeline
+        from optimum.intel.openvino import OVModelForSpeechSeq2Seq
+
+        MODEL_ID = "OpenVINO/whisper-base-int8-ov"
+        logger.info(f"Loading Whisper model {MODEL_ID} (Lazy Load)...")
+        
+        processor = AutoProcessor.from_pretrained(MODEL_ID)
+        
+        try:
+            logger.info("Attempting to load Whisper model on Intel GPU...")
+            model = OVModelForSpeechSeq2Seq.from_pretrained(MODEL_ID, device="GPU")
+            logger.info("Whisper model loaded successfully on Intel GPU.")
+        except Exception as e:
+            logger.warning(f"Failed to load Whisper model on Intel GPU: {e}. Falling back to CPU.")
+            model = OVModelForSpeechSeq2Seq.from_pretrained(MODEL_ID, device="CPU")
+            logger.info("Whisper model loaded successfully on CPU.")
+        
+        _whisper_pipe = pipeline(
+            "automatic-speech-recognition",
+            model=model,
+            tokenizer=processor.tokenizer,
+            feature_extractor=processor.feature_extractor,
+            chunk_length_s=30,
+            stride_length_s=5,
+        )
+        return _whisper_pipe
+    except Exception as e:
+        logger.error(f"Failed to load Whisper pipeline: {e}")
+        return None
 
 def load_audio(file_path: str | Path) -> np.ndarray:
     """
@@ -38,40 +80,28 @@ def load_audio(file_path: str | Path) -> np.ndarray:
         logger.error(f"Error loading audio with ffmpeg: {e}")
         raise
 
-# Load Whisper model and pipeline (do this once at module level)
-MODEL_ID = "OpenVINO/whisper-base-int8-ov"
-try:
-    logger.info(f"Loading Whisper model {MODEL_ID} on Intel GPU...")
-    processor = AutoProcessor.from_pretrained(MODEL_ID)
-    try:
-        model = OVModelForSpeechSeq2Seq.from_pretrained(MODEL_ID, device="GPU")
-        logger.info("Whisper model loaded successfully on Intel GPU.")
-    except Exception as e:
-        logger.warning(f"Failed to load Whisper model on Intel GPU: {e}. Falling back to CPU.")
-        model = OVModelForSpeechSeq2Seq.from_pretrained(MODEL_ID, device="CPU")
-        logger.info("Whisper model loaded successfully on CPU.")
-    
-    # Create pipeline for automatic chunking of long audio
-    pipe = pipeline(
-        "automatic-speech-recognition",
-        model=model,
-        tokenizer=processor.tokenizer,
-        feature_extractor=processor.feature_extractor,
-        chunk_length_s=30,
-        stride_length_s=5,
-    )
-except Exception as e:
-    logger.error(f"Failed to load Whisper pipeline: {e}")
-    pipe = None
-
 @router.message(F.voice | F.audio)
 async def handle_audio_message(message: types.Message):
-    if not pipe:
-        await message.answer("Error: Whisper model not loaded. Transcription is unavailable.")
-        return
-
     if not FFMPEG_AVAILABLE:
         await message.answer("Error: ffmpeg is not installed on the server. Transcription is unavailable.")
+        return
+
+    # 1. Check if model is loaded, if not, notify user and load it
+    global _whisper_pipe
+    status_msg = None
+    if _whisper_pipe is None:
+        status_msg = await message.reply("⏳ Loading transcription model for the first time... this may take a moment.")
+        # Load in thread to avoid blocking the event loop during heavy initialization
+        pipe = await asyncio.to_thread(_get_whisper_pipeline)
+    else:
+        pipe = _whisper_pipe
+
+    if not pipe:
+        error_text = "Error: Whisper model could not be loaded. Transcription is unavailable."
+        if status_msg:
+            await status_msg.edit_text(f"❌ {error_text}")
+        else:
+            await message.answer(error_text)
         return
 
     # Check if it's a voice or audio file
@@ -120,6 +150,9 @@ async def handle_audio_message(message: types.Message):
         # Transcribe using OpenVINO Whisper Pipeline
         logger.info(f"Transcribing {temp_file_path}...")
         
+        if status_msg:
+            await status_msg.edit_text("🔄 Transcribing audio...")
+        
         # Load audio data as numpy array (Whisper expects 16kHz float32)
         audio_data = load_audio(temp_file_path)
         
@@ -138,7 +171,14 @@ async def handle_audio_message(message: types.Message):
         # Send response to group
         response = f"🎤 Transcription for {message.from_user.full_name}:\n\n<blockquote expandable>{transcription_text}</blockquote>"
         await message.reply(response)
+        
+        if status_msg:
+            await status_msg.delete()
 
     except Exception as e:
         logger.error(f"Error processing audio message: {e}")
-        await message.reply(f"Failed to transcribe audio: {str(e)}")
+        error_text = f"Failed to transcribe audio: {str(e)}"
+        if status_msg:
+            await status_msg.edit_text(f"❌ {error_text}")
+        else:
+            await message.reply(error_text)
