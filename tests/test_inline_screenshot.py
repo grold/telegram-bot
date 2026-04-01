@@ -24,3 +24,23 @@ async def test_inline_screenshot_query_authorized():
     inline_query.answer.assert_called_once()
     results = inline_query.answer.call_args[0][0]
     assert any(r.id == "camera_screenshot" for r in results)
+
+from aiogram.types import ChosenInlineResult
+
+@pytest.mark.asyncio
+async def test_chosen_screenshot_result_success():
+    chosen_result = MagicMock(spec=ChosenInlineResult)
+    chosen_result.result_id = "camera_screenshot"
+    chosen_result.inline_message_id = "test_inline_id"
+    chosen_result.from_user = MagicMock(spec=User)
+    chosen_result.from_user.id = 123
+    chosen_result.bot = AsyncMock()
+
+    from handlers.inline import on_chosen_screenshot_result
+    
+    with patch("handlers.inline.perform_screenshot_capture") as mock_capture:
+        mock_capture.return_value = (b"fake_data", "test.jpg", None)
+        
+        await on_chosen_screenshot_result(chosen_result)
+        
+    chosen_result.bot.edit_message_media.assert_called_once()
