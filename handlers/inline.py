@@ -1,9 +1,10 @@
 import logging
 import asyncio
 from uuid import uuid4
-from aiogram import Router, types
-from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
+from aiogram import Router, types, F
+from aiogram.types import InlineQueryResultArticle, InputTextMessageContent, InputMediaPhoto, BufferedInputFile
 from handlers.weather import get_weather, format_weather_message
+from handlers.camera import perform_screenshot_capture
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -19,8 +20,32 @@ except FileNotFoundError:
 @router.inline_query()
 async def inline_weather_handler(inline_query: types.InlineQuery):
     """Handles inline queries for weather with autocompletion."""
-    query = inline_query.query.strip()
+    query = inline_query.query.strip().lower()
     results = []
+
+    # --- Screenshot Handling ---
+    if query == "screenshot":
+        # Check permissions (manual check since middleware doesn't apply to inline_query results in the same way)
+        from database import get_user, get_command_min_role
+        from middlewares.auth import ROLES_ORDER
+        
+        user = get_user(inline_query.from_user.id)
+        user_role = user["role"] if user and user["is_authorized"] else "PUBLIC"
+        min_role = get_command_min_role("camera") or "PUBLIC"
+        
+        if ROLES_ORDER.get(user_role, 0) >= ROLES_ORDER.get(min_role, 0):
+            results.append(
+                types.InlineQueryResultArticle(
+                    id="camera_screenshot",
+                    title="📸 Capture Camera Screenshot",
+                    description="Captures a live frame from the camera with weather overlay.",
+                    input_message_content=types.InputTextMessageContent(
+                        message_text="📸 Connecting to camera and capturing screenshot..."
+                    )
+                )
+            )
+            await inline_query.answer(results, cache_time=0) # No cache for live screenshots
+            return
 
     if not query and not inline_query.location:
         # If query is empty and no location provided, show an instructional message
@@ -124,3 +149,24 @@ async def inline_weather_handler(inline_query: types.InlineQuery):
         )
 
     await inline_query.answer(results, cache_time=60)
+
+@router.chosen_inline_result(F.result_id == "camera_screenshot")
+async def on_chosen_screenshot_result(chosen_result: types.ChosenInlineResult):
+    """Executes the screenshot capture when the inline result is selected."""
+    logger.info(f"Inline screenshot requested by {chosen_result.from_user.id}")
+    
+    image_content, filename, error_msg = await perform_screenshot_capture()
+    
+    if image_content:
+        photo = BufferedInputFile(image_content, filename=filename)
+        media = InputMediaPhoto(media=photo, caption=f"🖼️ Camera Snapshot\nSaved as: <code>{filename}</code>")
+        
+        await chosen_result.bot.edit_message_media(
+            media=media,
+            inline_message_id=chosen_result.inline_message_id
+        )
+    else:
+        await chosen_result.bot.edit_message_text(
+            text=f"❌ Failed to capture screenshot: {error_msg}",
+            inline_message_id=chosen_result.inline_message_id
+        )

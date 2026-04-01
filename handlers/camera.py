@@ -232,6 +232,67 @@ async def overlay_weather_on_image(image_bytes: bytes, city_name: str = "Izhevsk
         logger.error(f"Error overlaying weather on image: {e}")
         return image_bytes
 
+async def perform_screenshot_capture(city_name: str = "Izhevsk") -> tuple[bytes | None, str | None, str | None]:
+    """
+    Handles the full capture flow: ONVIF/RTSP -> Weather Overlay -> Disk Save.
+    Returns: (image_content, filename, error_msg)
+    """
+    try:
+        snapshot_uri, rtsp_uri = await get_camera_snapshot()
+        image_content = None
+        
+        # 1. Try Snapshot URI
+        if snapshot_uri:
+            def download_image():
+                try:
+                    response = requests.get(
+                        snapshot_uri, 
+                        auth=HTTPDigestAuth(CAMERA_USER, CAMERA_PASSWORD), 
+                        timeout=10.0,
+                        verify=False
+                    )
+                    if response.status_code == 401:
+                        response = requests.get(
+                            snapshot_uri, 
+                            auth=HTTPBasicAuth(CAMERA_USER, CAMERA_PASSWORD), 
+                            timeout=10.0,
+                            verify=False
+                        )
+                    return response if response.status_code == 200 and response.content else None
+                except Exception:
+                    return None
+
+            response = await asyncio.to_thread(download_image)
+            if response:
+                image_content = response.content
+
+        # 2. Fallback to RTSP
+        if not image_content and rtsp_uri:
+            logger.info("Falling back to RTSP capture...")
+            image_content = await capture_rtsp_frame(rtsp_uri)
+
+        if not image_content:
+            return None, None, "Failed to capture image from both Snapshot URI and RTSP stream."
+
+        # 3. Add Weather Overlay
+        image_content = await overlay_weather_on_image(image_content, city_name=city_name)
+
+        # 4. Save to Disk
+        SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        filename = f"snapshot_{timestamp}.jpg"
+        filepath = SCREENSHOTS_DIR / filename
+        
+        with open(filepath, "wb") as f:
+            f.write(image_content)
+        logger.info(f"Saved snapshot to {filepath}")
+        
+        return image_content, filename, None
+
+    except Exception as e:
+        logger.error(f"Error in perform_screenshot_capture: {e}")
+        return None, None, str(e)
+
 @router.message(Command("camera"))
 async def cmd_camera(message: types.Message, command: CommandObject):
     """Handles the /camera screenshot and /camera video [sec] commands."""
@@ -241,69 +302,15 @@ async def cmd_camera(message: types.Message, command: CommandObject):
     if subcommand == "screenshot":
         processing_msg = await message.answer("📸 Connecting to camera and capturing screenshot...")
         
-        try:
-            snapshot_uri, rtsp_uri = await get_camera_snapshot()
-            image_content = None
-            
-            # 1. Try Snapshot URI
-            if snapshot_uri:
-                def download_image():
-                    try:
-                        response = requests.get(
-                            snapshot_uri, 
-                            auth=HTTPDigestAuth(CAMERA_USER, CAMERA_PASSWORD), 
-                            timeout=10.0,
-                            verify=False
-                        )
-                        if response.status_code == 401:
-                            response = requests.get(
-                                snapshot_uri, 
-                                auth=HTTPBasicAuth(CAMERA_USER, CAMERA_PASSWORD), 
-                                timeout=10.0,
-                                verify=False
-                            )
-                        return response if response.status_code == 200 and response.content else None
-                    except Exception:
-                        return None
-
-                response = await asyncio.to_thread(download_image)
-                if response:
-                    image_content = response.content
-
-            # 2. Fallback to RTSP
-            if not image_content and rtsp_uri:
-                logger.info("Falling back to RTSP capture...")
-                image_content = await capture_rtsp_frame(rtsp_uri)
-
-            # 3. Add Weather Overlay (NEW)
-            if image_content:
-                image_content = await overlay_weather_on_image(image_content, city_name="Izhevsk")
-
-            # 4. Save and Send
-            if image_content:
-                # Ensure directory exists
-                SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
-                
-                # Create timestamped filename
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-                filename = f"snapshot_{timestamp}.jpg"
-                filepath = SCREENSHOTS_DIR / filename
-                
-                # Save to disk
-                with open(filepath, "wb") as f:
-                    f.write(image_content)
-                logger.info(f"Saved snapshot to {filepath}")
-
-                # Send to Telegram
-                photo = BufferedInputFile(image_content, filename=filename)
-                await message.answer_photo(photo, caption=f"🖼️ Camera Snapshot from {CAMERA_IP}\nSaved as: <code>{filename}</code>")
-                await processing_msg.delete()
-            else:
-                await message.answer("❌ Failed to capture image from both Snapshot URI and RTSP stream.")
-                    
-        except Exception as e:
-            logger.error(f"Error in cmd_camera screenshot: {e}")
-            await message.answer(f"❌ Error capturing screenshot: {str(e)}")
+        image_content, filename, error_msg = await perform_screenshot_capture()
+        
+        if image_content:
+            # Send to Telegram
+            photo = BufferedInputFile(image_content, filename=filename)
+            await message.answer_photo(photo, caption=f"🖼️ Camera Snapshot from {CAMERA_IP}\nSaved as: <code>{filename}</code>")
+            await processing_msg.delete()
+        else:
+            await message.answer(f"❌ {error_msg}")
             
     elif subcommand == "video":
         duration = 5
