@@ -19,8 +19,32 @@ except FileNotFoundError:
 @router.inline_query()
 async def inline_weather_handler(inline_query: types.InlineQuery):
     """Handles inline queries for weather with autocompletion."""
-    query = inline_query.query.strip()
+    query = inline_query.query.strip().lower()
     results = []
+
+    # --- Screenshot Handling ---
+    if query == "screenshot":
+        # Check permissions (manual check since middleware doesn't apply to inline_query results in the same way)
+        from database import get_user, get_command_min_role
+        from middlewares.auth import ROLES_ORDER
+        
+        user = get_user(inline_query.from_user.id)
+        user_role = user["role"] if user and user["is_authorized"] else "PUBLIC"
+        min_role = get_command_min_role("camera") or "PUBLIC"
+        
+        if ROLES_ORDER.get(user_role, 0) >= ROLES_ORDER.get(min_role, 0):
+            results.append(
+                types.InlineQueryResultArticle(
+                    id="camera_screenshot",
+                    title="📸 Capture Camera Screenshot",
+                    description="Captures a live frame from the camera with weather overlay.",
+                    input_message_content=types.InputTextMessageContent(
+                        message_text="📸 Connecting to camera and capturing screenshot..."
+                    )
+                )
+            )
+            await inline_query.answer(results, cache_time=0) # No cache for live screenshots
+            return
 
     if not query and not inline_query.location:
         # If query is empty and no location provided, show an instructional message
