@@ -28,7 +28,9 @@ A feature-rich Telegram bot built with Python 3.13 and [aiogram 3](https://docs.
     - `/camera screenshot` - Connects to the camera, sends a snapshot, and saves it to the `screenshots/` folder.
 - **Group Management**: The bot automatically greets new members when they join a group.
 - **Auto-Replies**: The bot listens for specific keywords (e.g., "hello", "pricing", "support") and responds automatically.
-- **Logging**: Includes `InteractionLoggingMiddleware` to log all bot interactions (messages, inline queries) to `commands.log`.
+- **Logging & Monitoring**: Includes `InteractionLoggingMiddleware` to log all bot interactions (messages, inline queries) to a SQLite database.
+    - **Enhanced Error Reporting**: Automatically captures handler exceptions with full tracebacks.
+    - **Log Viewer (`/log`)**: Authorized users can view recent interactions, filter for errors, and monitor bot performance in real-time.
 
 ## Authentication & RBAC
 

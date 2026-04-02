@@ -1,3 +1,26 @@
+# Version History
+
+## Version 0.7.0 (2026-04-02)
+
+### New Features
+- **Lazy Loading for Whisper**: Transcription model now only loads when the first voice/audio message is received.
+    - Improved bot startup time (deferred heavy AI module loading).
+    - Uses `asyncio.to_thread` for non-blocking initialization on first use.
+    - Added user feedback with "⏳ Loading..." status messages.
+- **Enhanced Error Reporting**: Complete integration of exception tracking into the bot's middleware.
+    - Automatically captures, logs, and re-raises all handler exceptions.
+    - Saves full tracebacks to the database for remote debugging.
+    - Added visual success (✅) and failure (❌) markers to the `/log` output.
+    - Added `/log errors` filter for rapid incident triage.
+
+### Improvements & Bug Fixes
+- **Testing**: Added specialized test suites for lazy loading (`test_audio_lazy_loading.py`) and error logging (`test_error_logging.py`).
+- **Stability**: Refactored `InteractionLoggingMiddleware` for better asynchronous performance and reliability.
+- **Documentation**: Updated `README.md` and `GEMINI.md` to reflect new architecture and technical mandates.
+
+## Version 0.6.3 (2026-04-01)
+- Minor documentation and design preparation for lazy loading features.
+
 ## Version 0.6.2 (2026-03-25)
 
 ### New Features
@@ -9,7 +32,6 @@
 ### Improvements & Bug Fixes
 - **Testing**: Fixed regression tests for `mygroups`, `time`, and `audio` handlers to align with recent RBAC and global bot property changes.
 - **Database**: Added `status`, `exception`, and `traceback` columns to the `logs` table with automatic migration.
-# Version History
 
 ## Version 0.6.0 (2026-03-12)
 
@@ -32,25 +54,12 @@
 
 ### New Features
 - **Whisper GPU Acceleration**: Enabled Intel Iris Graphics acceleration via OpenVINO for significantly faster audio transcription.
-    - Uses `optimum-intel` backend.
-    - Improved transcription reliability with chunking for long audio files.
 - **Enhanced Camera Screenshots**: Added a comprehensive weather overlay for Izhevsk on camera snapshots.
-    - Includes Temperature, "Feels Like," Condition, Humidity, and Wind speed.
-    - Features a semi-transparent, multi-line overlay for maximum readability.
-    - Configurable font path via `FONT_PATH` in `config.py`.
-- **Refactored Currency Rates (`/rate`)**: Completely redesigned to support dynamic currency pairs (e.g., `/rate USD EUR`, `/rate BTC USD`).
-    - Switched to a more flexible international API.
-    - Added support for 150+ fiat currencies and major cryptocurrencies.
-- **Enriched Logging (`/log`)**: Enhanced command for better bot monitoring.
-    - Added filtering by log level (e.g., `/log error`).
-    - Added configurable result limits (e.g., `/log 20`).
-    - Improved output formatting with HTML blocks.
+- **Refactored Currency Rates (`/rate`)**: Completely redesigned to support dynamic currency pairs.
+- **Enriched Logging (`/log`)**: Enhanced command with filtering by log level and result limits.
 
 ### Improvements & Bug Fixes
 - **Audio Transcription**: Added support for very long voice messages using the Whisper pipeline with automatic chunking.
-- **Dependencies**: Added `Pillow` for image processing and `httpx` for modern async HTTP requests.
-- **Documentation**: Added `generate_docs.sh` to automate tool documentation using Gemini.
-- **Testing**: Significant expansion of unit tests, especially for camera and rate-limiting logic.
 - **Stability**: Added `intel-opencl-icd` check and better handling of hardware-specific optimizations.
 
 ---
@@ -59,20 +68,7 @@
 
 ### New Features
 - **Exchange Rates (`/rate`)**: Initial implementation to fetch current exchange rates for USD, EUR, and JPY against RUB.
-    - Sourced from CBR.ru (via reliable JSON mirror) for stability.
-    - Includes correct handling of currency nominals (e.g., JPY per 100 units).
-    - Includes a signature link to `supopochi` Telegram channel.
 - **Camera Video (`/camera video`)**: Implemented ability to record short video clips from ONVIF cameras.
-    - Configurable duration (default 5s, max 30s).
-    - Optimized for Telegram compatibility using `libx264` and `yuv420p`.
-    - Note: Audio recording was removed to ensure compatibility and privacy.
-
-### Improvements & Bug Fixes
-- **FFmpeg Stability**: Improved RTSP stream handling by switching from `-stimeout` to `-timeout`.
-- **Bot Protection Workarounds**: Successfully identified and handled bot protection on data sources by switching to more stable mirrors.
-- **Improved Formatting**: Implemented global HTML parse mode and ensured all handlers use robust multi-line string formatting.
-- **Testing**: Added unit tests for all new features (`/rate`, `/camera video`).
-- **Project Guidelines**: Updated `GEMINI.md` with technical mandates for architecture, testing, and Git workflows to prevent common implementation errors.
 
 ---
 
@@ -80,16 +76,6 @@
 
 ### New Features
 - **Core Commands**: Implemented initial set of commands: `/time`, `/photo`, `/help`, and group management.
-- **Logging System**: Added comprehensive command logging via middleware to capture all user interactions, including inline queries.
-- **Admin Tools**:
-    - **`/log` Command**: Display recent bot interactions with configurable line limits (`LOG_NUM_LINES`).
-    - **`/top` Command**: Display most active users with configurable limits (`TOP_NUM_LINES`).
-    - **Authorization**: Introduced `AdminMiddleware` and `.auth` file system to centralize authorization for restricted commands.
-- **Weather Services**:
-    - Enabled weather lookup via inline location sharing.
-    - Expanded city list with a population script (`tools/populate_cities.py`).
-
-### Improvements & Bug Fixes
-- **Documentation**: Added detailed `README.md` covering features, requirements, setup, and usage.
-- **Testing**: Added unit tests for `cmd_time` and `cmd_start` handlers.
-- **Workflows**: Integrated Gemini GitHub Actions for automated dispatching, reviews, and triaging.
+- **Logging System**: Added comprehensive command logging via middleware.
+- **Admin Tools**: `/log`, `/top`, and basic authorization system.
+- **Weather Services**: Weather lookup via inline location sharing and expanded city list.
