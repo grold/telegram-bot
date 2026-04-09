@@ -17,6 +17,8 @@ async def cmd_help(message: types.Message):
         "/time [city] - Local time (default: Server time)\n"
         "/weather [city] - Current weather or live location\n"
         "/forecast [city] - 5-day weather forecast\n"
+        "<b>📸 Photo Weather:</b>\n"
+        "Send a <b>Photo</b> or <b>File</b> with GPS EXIF data to get historical weather!\n"
         "/rate [CUR1-CUR2] - Exchange rates (default: USD, EUR to RUB)\n"
         "/webcams - Interact with Windy webcams (use /webcams for full help)\n"
         "<b>📍 Circle of Friends:</b>\n"

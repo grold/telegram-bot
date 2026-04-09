@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from config import BOT_TOKEN, AUDIO_CLEANUP_DAYS
-from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, audio, circle, camera, rate, mygroups, webcams, admin_mgmt
+from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, audio, circle, camera, rate, mygroups, webcams, admin_mgmt, exif_weather
 from tools.cleanup_audio import cleanup_old_audio
 from tools.migrate_auth import migrate_auth_file
 from database import init_db
@@ -61,6 +61,7 @@ async def main():
     dp.include_router(camera.router)
     dp.include_router(rate.router)
     dp.include_router(mygroups.router)
+    dp.include_router(exif_weather.router)
     dp.include_router(auto_reply.router)
 
     # Start polling
