@@ -38,31 +38,21 @@ def extract_exif_data(image_bytes):
         if not exif:
             return None, None
 
-        # GPSInfo is a separate dictionary often indexed by 34853 (0x8825)
-        gps_info = {}
-        for tag, value in exif.items():
-            decoded = ExifTags.TAGS.get(tag, tag)
-            if decoded == "GPSInfo":
-                # For Pillow 10+, getexif() might return GPSInfo in different ways
-                # but standard practice is to use get_ifd(0x8825)
-                pass
-
         # Try to get GPS IFD specifically
         gps_ifd = exif.get_ifd(0x8825)
         if gps_ifd:
+            # GPSLatitude is 2, GPSLatitudeRef is 1
             lat = get_decimal_from_dms(gps_ifd.get(2), gps_ifd.get(1))
+            # GPSLongitude is 4, GPSLongitudeRef is 3
             lon = get_decimal_from_dms(gps_ifd.get(4), gps_ifd.get(3))
             
-            # Timestamp (DateTimeOriginal is often in the main EXIF or 0x9003)
-            # Try main EXIF first (0x0132 is DateTime, 0x9003 is DateTimeOriginal)
+            # Timestamp
             dt_str = exif.get(0x9003) or exif.get(0x0132)
-            
-            # If not found in main, try get_ifd(0x8769) for Exif IFD
             if not dt_str:
                 exif_ifd = exif.get_ifd(0x8769)
                 if exif_ifd:
                     dt_str = exif_ifd.get(0x9003) or exif_ifd.get(0x9004)
-
+            
             return (lat, lon), dt_str
         
         return None, None
@@ -78,7 +68,15 @@ async def fetch_historical_weather(lat, lon, dt_str):
         date_str = dt.strftime("%Y-%m-%d")
         hour = dt.hour
 
-        url = "https://archive-api.open-meteo.com/v1/archive"
+        # Open-Meteo Archive API takes up to 2 days to update.
+        # If the date is very recent, use the forecast API.
+        days_diff = (datetime.now() - dt).days
+        
+        if days_diff <= 7:
+            url = "https://api.open-meteo.com/v1/forecast"
+        else:
+            url = "https://archive-api.open-meteo.com/v1/archive"
+
         params = {
             "latitude": lat,
             "longitude": lon,
@@ -93,24 +91,25 @@ async def fetch_historical_weather(lat, lon, dt_str):
                 if response.status == 200:
                     data = await response.json()
                     hourly = data.get("hourly", {})
-                    # Find the specific hour
-                    temp = hourly.get("temperature_2m", [])[hour]
-                    humidity = hourly.get("relative_humidity_2m", [])[hour]
-                    wind = hourly.get("wind_speed_10m", [])[hour]
-                    clouds = hourly.get("cloud_cover", [])[hour]
-                    code = hourly.get("weather_code", [])[hour]
                     
+                    # Safety check for hour index
+                    temps = hourly.get("temperature_2m", [])
+                    if not temps or hour >= len(temps):
+                        logger.error(f"Hour {hour} not found in hourly data (length {len(temps)})")
+                        return None
+
                     return {
-                        "temp": temp,
-                        "humidity": humidity,
-                        "wind": wind,
-                        "clouds": clouds,
-                        "code": code,
+                        "temp": temps[hour],
+                        "humidity": hourly.get("relative_humidity_2m", [])[hour],
+                        "wind": hourly.get("wind_speed_10m", [])[hour],
+                        "clouds": hourly.get("cloud_cover", [])[hour],
+                        "code": hourly.get("weather_code", [])[hour],
                         "date": date_str,
                         "time": dt.strftime("%H:%M:%S")
                     }
                 else:
-                    logger.error(f"Open-Meteo returned status {response.status}")
+                    error_text = await response.text()
+                    logger.error(f"Open-Meteo returned status {response.status}: {error_text}")
                     return None
     except Exception:
         logger.exception("Error fetching historical weather")
@@ -168,16 +167,11 @@ async def process_photo_for_exif(message: types.Message, bot: Bot, file_id: str)
 
 @router.message(F.photo)
 async def handle_photo(message: types.Message, bot: Bot):
-    logger.info(f"Received photo message from user {message.from_user.id}")
     # Get the highest resolution photo
     photo = message.photo[-1]
     await process_photo_for_exif(message, bot, photo.file_id)
 
 @router.message(F.document)
 async def handle_document(message: types.Message, bot: Bot):
-    logger.info(f"Received document message from user {message.from_user.id}")
     if message.document.mime_type and message.document.mime_type.startswith("image/"):
-        logger.info(f"Document is an image: {message.document.mime_type}")
         await process_photo_for_exif(message, bot, message.document.file_id)
-    else:
-        logger.info(f"Document is not an image: {message.document.mime_type}")

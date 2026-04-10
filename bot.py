@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from config import BOT_TOKEN, AUDIO_CLEANUP_DAYS
@@ -44,6 +45,7 @@ async def main():
     dp.message.middleware(AuthMiddleware())
 
     # Register routers
+    dp.include_router(exif_weather.router)
     dp.include_router(inline.router) # Inline queries
     dp.include_router(start.router)
     dp.include_router(help.router)
@@ -61,7 +63,6 @@ async def main():
     dp.include_router(camera.router)
     dp.include_router(rate.router)
     dp.include_router(mygroups.router)
-    dp.include_router(exif_weather.router)
     dp.include_router(auto_reply.router)
 
     # Start polling
