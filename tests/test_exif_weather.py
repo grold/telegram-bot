@@ -1,33 +1,8 @@
 import pytest
 import io
 from unittest.mock import AsyncMock, MagicMock, patch
-from PIL import Image, ImageOps
+from PIL import Image, ExifTags
 from handlers.exif_weather import get_decimal_from_dms, extract_exif_data, get_weather_condition, fetch_historical_weather
-
-def create_test_image_with_exif(lat=None, lon=None, date_str=None):
-    """Creates a small image with EXIF metadata for testing."""
-    img = Image.new('RGB', (10, 10), color='red')
-    exif = img.getexif()
-    
-    if lat is not None and lon is not None:
-        # GPS IFD is 0x8825
-        gps_ifd = {
-            1: 'N' if lat >= 0 else 'S',
-            2: (abs(lat), 0, 0), # Simplified DMS
-            3: 'E' if lon >= 0 else 'W',
-            4: (abs(lon), 0, 0),
-        }
-        # In real EXIF, these are rationals (num, den). Pillow handles some tuples.
-        # This is a simplified mock for extract_exif_data to process.
-        
-    # DateTimeOriginal is 0x9003
-    if date_str:
-        exif[0x9003] = date_str
-        
-    img_byte_arr = io.BytesIO()
-    # img.save(img_byte_arr, format='JPEG', exif=exif) # Pillow might not save all IFDs easily this way in tests
-    # return img_byte_arr.getvalue()
-    return img, exif
 
 def test_get_decimal_from_dms():
     # 52° 31' 12" N -> 52.52
@@ -37,10 +12,57 @@ def test_get_decimal_from_dms():
     # 33° 51' 31" S -> -33.8586...
     assert round(get_decimal_from_dms((33, 51, 31), 'S'), 4) == -33.8586
 
+def test_get_decimal_from_dms_invalid_input():
+    # Test invalid formats
+    assert get_decimal_from_dms(None, 'N') is None
+    assert get_decimal_from_dms((52, 31), 'N') is None
+    assert get_decimal_from_dms("invalid", 'N') is None
+    assert get_decimal_from_dms((52, 31, "invalid"), 'N') is None
+
 def test_get_weather_condition():
     assert get_weather_condition(0) == "Clear sky"
     assert get_weather_condition(95) == "Thunderstorm"
     assert get_weather_condition(999) == "Unknown"
+
+@patch('PIL.Image.open')
+def test_extract_exif_data_success(mock_image_open):
+    mock_img = MagicMock()
+    mock_exif = MagicMock()
+    mock_gps_ifd = {
+        1: 'N', 2: (52, 0, 0),
+        3: 'E', 4: (13, 0, 0),
+    }
+    # Mock exif.get for 0x9003 (DateTimeOriginal)
+    mock_exif.get.side_effect = lambda key: "2023:05:20 12:00:00" if key == 0x9003 else None
+    mock_exif.get_ifd.return_value = mock_gps_ifd
+    mock_img.getexif.return_value = mock_exif
+    mock_image_open.return_value = mock_img
+
+    coords, dt_str = extract_exif_data(b"fake_image_bytes")
+    assert coords == (52.0, 13.0)
+    assert dt_str == "2023:05:20 12:00:00"
+
+@patch('PIL.Image.open')
+def test_extract_exif_data_no_exif(mock_image_open):
+    mock_img = MagicMock()
+    mock_img.getexif.return_value = None
+    mock_image_open.return_value = mock_img
+
+    coords, dt_str = extract_exif_data(b"fake_image_bytes")
+    assert coords is None
+    assert dt_str is None
+
+@patch('PIL.Image.open')
+def test_extract_exif_data_no_gps(mock_image_open):
+    mock_img = MagicMock()
+    mock_exif = MagicMock()
+    mock_exif.get_ifd.return_value = None # No GPS IFD
+    mock_img.getexif.return_value = mock_exif
+    mock_image_open.return_value = mock_img
+
+    coords, dt_str = extract_exif_data(b"fake_image_bytes")
+    assert coords is None
+    assert dt_str is None
 
 @pytest.mark.asyncio
 async def test_fetch_historical_weather_success():

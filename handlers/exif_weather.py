@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 
 def get_decimal_from_dms(dms, ref):
     """Converts Degrees, Minutes, Seconds to decimal coordinates."""
+    if not isinstance(dms, (list, tuple)) or len(dms) < 3:
+        logger.warning(f"Invalid DMS format provided: {dms}")
+        return None
     try:
         degrees = dms[0]
         minutes = dms[1]
@@ -26,8 +29,8 @@ def get_decimal_from_dms(dms, ref):
         if ref in ['S', 'W']:
             decimal = -decimal
         return decimal
-    except Exception:
-        logger.exception("Error converting DMS to decimal")
+    except (TypeError, ValueError) as e:
+        logger.exception(f"Error converting DMS to decimal: {e}")
         return None
 
 def extract_exif_data(image_bytes):
@@ -56,8 +59,8 @@ def extract_exif_data(image_bytes):
             return (lat, lon), dt_str
         
         return None, None
-    except Exception:
-        logger.exception("Error extracting EXIF data")
+    except (IOError, AttributeError, KeyError) as e:
+        logger.exception(f"Error extracting EXIF data: {e}")
         return None, None
 
 async def fetch_historical_weather(lat, lon, dt_str):
@@ -92,27 +95,29 @@ async def fetch_historical_weather(lat, lon, dt_str):
                     data = await response.json()
                     hourly = data.get("hourly", {})
                     
-                    # Safety check for hour index
-                    temps = hourly.get("temperature_2m", [])
-                    if not temps or hour >= len(temps):
-                        logger.error(f"Hour {hour} not found in hourly data (length {len(temps)})")
-                        return None
+                    # Safer data access
+                    hourly_data_keys = ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "cloud_cover", "weather_code"]
+                    hourly_values = {key: hourly.get(key, []) for key in hourly_data_keys}
 
-                    return {
-                        "temp": temps[hour],
-                        "humidity": hourly.get("relative_humidity_2m", [])[hour],
-                        "wind": hourly.get("wind_speed_10m", [])[hour],
-                        "clouds": hourly.get("cloud_cover", [])[hour],
-                        "code": hourly.get("weather_code", [])[hour],
-                        "date": date_str,
-                        "time": dt.strftime("%H:%M:%S")
-                    }
+                    if all(len(hourly_values[key]) > hour for key in hourly_data_keys):
+                        return {
+                            "temp": hourly_values["temperature_2m"][hour],
+                            "humidity": hourly_values["relative_humidity_2m"][hour],
+                            "wind": hourly_values["wind_speed_10m"][hour],
+                            "clouds": hourly_values["cloud_cover"][hour],
+                            "code": hourly_values["weather_code"][hour],
+                            "date": date_str,
+                            "time": dt.strftime("%H:%M:%S")
+                        }
+                    else:
+                        logger.error(f"Incomplete hourly data for hour {hour} in response.")
+                        return None
                 else:
                     error_text = await response.text()
                     logger.error(f"Open-Meteo returned status {response.status}: {error_text}")
                     return None
-    except Exception:
-        logger.exception("Error fetching historical weather")
+    except (aiohttp.ClientError, KeyError, IndexError, ValueError) as e:
+        logger.exception(f"Error fetching historical weather: {e}")
         return None
 
 def get_weather_condition(code):
@@ -159,7 +164,7 @@ async def process_photo_for_exif(message: types.Message, bot: Bot, file_id: str)
                 f"💨 <b>Wind Speed:</b> <code>{weather['wind']} km/h</code>\n"
                 f"🌥️ <b>Cloud Cover:</b> <code>{weather['clouds']}%</code>"
             )
-            await message.answer(report, parse_mode="HTML")
+            await message.answer(report)
         else:
             logger.info(f"Could not fetch weather for coordinates {coords} and date {dt_str}")
     else:
