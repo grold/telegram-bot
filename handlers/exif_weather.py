@@ -168,11 +168,16 @@ async def process_photo_for_exif(message: types.Message, bot: Bot, file_id: str)
 
 @router.message(F.photo)
 async def handle_photo(message: types.Message, bot: Bot):
+    logger.info(f"Received photo message from user {message.from_user.id}")
     # Get the highest resolution photo
     photo = message.photo[-1]
     await process_photo_for_exif(message, bot, photo.file_id)
 
 @router.message(F.document)
 async def handle_document(message: types.Message, bot: Bot):
+    logger.info(f"Received document message from user {message.from_user.id}")
     if message.document.mime_type and message.document.mime_type.startswith("image/"):
+        logger.info(f"Document is an image: {message.document.mime_type}")
         await process_photo_for_exif(message, bot, message.document.file_id)
+    else:
+        logger.info(f"Document is not an image: {message.document.mime_type}")
