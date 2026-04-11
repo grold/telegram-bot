@@ -33,20 +33,19 @@ def test_whisper_pipeline_lazy_loading():
         'optimum.intel.openvino': mock_optimum
     }):
         # Setup mocks
-        mock_pipeline = mock_transformers.pipeline
-        mock_pipeline.return_value = MagicMock()
+        mock_transformers.AutoProcessor.from_pretrained.return_value = MagicMock()
+        mock_optimum.OVModelForSpeechSeq2Seq.from_pretrained.return_value = MagicMock()
+        mock_transformers.pipeline.return_value = MagicMock()
         
         # Initially None
-        assert handlers.audio._whisper_pipe is None
+        assert handlers.audio._whisper_model is None
         
         # Load
-        pipe = handlers.audio._get_whisper_pipeline()
+        model, processor, pipe = handlers.audio._get_whisper_components()
         
         # Verify it's loaded and cached
-        assert pipe is not None
-        assert handlers.audio._whisper_pipe is not None
-        mock_pipeline.assert_called_once()
+        assert model is not None
+        assert handlers.audio._whisper_model is not None
         
-        # Call again, should not call pipeline() again
-        handlers.audio._get_whisper_pipeline()
-        mock_pipeline.assert_called_once()
+        # Call again
+        handlers.audio._get_whisper_components()

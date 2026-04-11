@@ -56,6 +56,8 @@ async def test_overlay_weather_on_image_fetch_fail():
 async def test_cmd_camera_screenshot_uri_success():
     # Mock message
     message = AsyncMock(spec=Message)
+    message.chat = MagicMock()
+    message.chat.id = 123
     message.answer = AsyncMock()
     message.answer_photo = AsyncMock()
     message.from_user = MagicMock(spec=User)
@@ -98,6 +100,8 @@ async def test_cmd_camera_screenshot_uri_success():
 async def test_cmd_camera_screenshot_rtsp_fallback_success():
     # Mock message
     message = AsyncMock(spec=Message)
+    message.chat = MagicMock()
+    message.chat.id = 123
     message.answer = AsyncMock()
     message.answer_photo = AsyncMock()
     message.from_user = MagicMock(spec=User)
@@ -140,6 +144,8 @@ async def test_cmd_camera_screenshot_rtsp_fallback_success():
 async def test_cmd_camera_video_success():
     # Mock message
     message = AsyncMock(spec=Message)
+    message.chat = MagicMock()
+    message.chat.id = 123
     message.answer = AsyncMock()
     message.answer_video = AsyncMock()
     
@@ -178,6 +184,8 @@ async def test_cmd_camera_video_success():
 async def test_cmd_camera_video_default_duration():
     # Mock message
     message = AsyncMock(spec=Message)
+    message.chat = MagicMock()
+    message.chat.id = 123
     message.answer = AsyncMock()
     message.answer_video = AsyncMock()
     
@@ -206,6 +214,8 @@ async def test_cmd_camera_video_default_duration():
 async def test_cmd_camera_video_max_duration():
     # Mock message
     message = AsyncMock(spec=Message)
+    message.chat = MagicMock()
+    message.chat.id = 123
     message.answer = AsyncMock()
     message.answer_video = AsyncMock()
     
@@ -236,6 +246,8 @@ async def test_cmd_camera_video_max_duration():
 async def test_cmd_camera_video_invalid_args():
     # Mock message
     message = AsyncMock(spec=Message)
+    message.chat = MagicMock()
+    message.chat.id = 123
     message.answer = AsyncMock()
     message.answer_video = AsyncMock()
     
@@ -275,6 +287,8 @@ async def test_cmd_camera_help():
 @pytest.mark.asyncio
 async def test_cmd_camera_screenshot_all_fail():
     message = AsyncMock(spec=Message)
+    message.chat = MagicMock()
+    message.chat.id = 123
     message.answer = AsyncMock()
     
     command = MagicMock()

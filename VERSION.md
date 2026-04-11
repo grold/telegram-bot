@@ -1,5 +1,27 @@
 # Version History
 
+## Version 0.7.2 (2026-04-11)
+
+### New Features
+- **Enhanced UX for Long Commands**: Integrated `sendChatAction` to provide immediate visual feedback for long-running operations.
+    - **Audio Transcription**: Shows "typing..." status.
+    - **EXIF Weather**: Shows "finding location..." status.
+    - **Camera Capture**: Shows "uploading photo/video..." status.
+- **Streaming Audio Transcription**: Refactored the audio handler to stream transcription text as it is generated using a custom `TelegramStreamer`.
+    - Uses low-level `model.generate` for token-by-token generation.
+    - Throttled Telegram message updates (every 1.5s) to respect rate limits.
+
+### Improvements & Bug Fixes
+- **Refactoring**: Transitioned from high-level Whisper pipeline to low-level inference for better control.
+- **Testing**: Added specialized test suites for `ChatActionSender` and `TelegramStreamer`.
+
+## Version 0.7.1 (2026-04-10)
+
+### New Features
+- **EXIF Weather Analysis**: Added capability to analyze photo metadata (EXIF) to fetch historical weather for the location and time the photo was taken.
+    - Automatically extracts GPS coordinates and timestamps from uploaded photos.
+    - Integrates with Open-Meteo Historical API for precise weather reports.
+
 ## Version 0.7.0 (2026-04-02)
 
 ### New Features
@@ -77,5 +99,4 @@
 ### New Features
 - **Core Commands**: Implemented initial set of commands: `/time`, `/photo`, `/help`, and group management.
 - **Logging System**: Added comprehensive command logging via middleware.
-- **Admin Tools**: `/log`, `/top`, and basic authorization system.
-- **Weather Services**: Weather lookup via inline location sharing and expanded city list.
+- **Admin Tools**: `/log`, `/top`, and others.

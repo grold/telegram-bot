@@ -3,10 +3,12 @@ import logging
 import shutil
 import subprocess
 import asyncio
+import time
 import numpy as np
 from datetime import datetime
 from pathlib import Path
 from aiogram import Router, types, F
+from aiogram.utils.chat_action import ChatActionSender
 from config import AUDIO_FOLDER
 
 logger = logging.getLogger(__name__)
@@ -17,17 +19,66 @@ FFMPEG_AVAILABLE = shutil.which("ffmpeg") is not None
 if not FFMPEG_AVAILABLE:
     logger.error("ffmpeg binary not found. Audio transcription will fail. Please install ffmpeg.")
 
-# Global cache for the Whisper pipeline
+# Global cache for the Whisper components
+_whisper_model = None
+_whisper_processor = None
 _whisper_pipe = None
 
-def _get_whisper_pipeline():
+class TelegramStreamer:
     """
-    Lazy loader for the Whisper pipeline.
+    Custom streamer that updates a Telegram message with partial transcription results.
+    """
+    def __init__(self, message: types.Message, processor, interval=1.5):
+        self.message = message
+        self.processor = processor
+        self.interval = interval
+        self.last_update = 0
+        self.tokens = []
+        self.text = ""
+        self.loop = asyncio.get_event_loop()
+
+    def put(self, value):
+        """
+        Called by the model when new tokens are generated.
+        value: tensor of shape [batch_size, 1] or [batch_size, seq_len]
+        """
+        if len(value.shape) > 1:
+            self.tokens.extend(value[0].tolist())
+        else:
+            self.tokens.extend(value.tolist())
+            
+        if time.time() - self.last_update > self.interval:
+            self.update_message()
+
+    def end(self):
+        """Called when generation is complete."""
+        self.update_message()
+
+    def update_message(self):
+        """Updates the Telegram message with current accumulated text."""
+        if not self.tokens:
+            return
+            
+        try:
+            new_text = self.processor.batch_decode(self.tokens, skip_special_tokens=True)[0]
+            if new_text.strip() != self.text.strip():
+                self.text = new_text
+                asyncio.run_coroutine_threadsafe(
+                    self.message.edit_text(f"🎤 {self.text}..."),
+                    self.loop
+                )
+                self.last_update = time.time()
+        except Exception as e:
+            logger.warning(f"Error updating streaming message: {e}")
+
+def _get_whisper_components():
+    """
+    Lazy loader for Whisper model and processor.
     Performs heavy imports and initialization only on the first call.
     """
-    global _whisper_pipe
-    if _whisper_pipe is not None:
-        return _whisper_pipe
+    global _whisper_model, _whisper_processor, _whisper_pipe
+    if _whisper_model is not None and _whisper_processor is not None:
+        return _whisper_model, _whisper_processor, _whisper_pipe
 
     try:
         from transformers import AutoProcessor, pipeline
@@ -47,6 +98,8 @@ def _get_whisper_pipeline():
             model = OVModelForSpeechSeq2Seq.from_pretrained(MODEL_ID, device="CPU")
             logger.info("Whisper model loaded successfully on CPU.")
         
+        _whisper_model = model
+        _whisper_processor = processor
         _whisper_pipe = pipeline(
             "automatic-speech-recognition",
             model=model,
@@ -55,10 +108,10 @@ def _get_whisper_pipeline():
             chunk_length_s=30,
             stride_length_s=5,
         )
-        return _whisper_pipe
+        return _whisper_model, _whisper_processor, _whisper_pipe
     except Exception as e:
-        logger.error(f"Failed to load Whisper pipeline: {e}")
-        return None
+        logger.error(f"Failed to load Whisper components: {e}")
+        return None, None, None
 
 def load_audio(file_path: str | Path) -> np.ndarray:
     """
@@ -86,99 +139,89 @@ async def handle_audio_message(message: types.Message):
         await message.answer("Error: ffmpeg is not installed on the server. Transcription is unavailable.")
         return
 
-    # 1. Check if model is loaded, if not, notify user and load it
-    global _whisper_pipe
-    status_msg = None
-    if _whisper_pipe is None:
-        status_msg = await message.reply("⏳ Loading transcription model for the first time... this may take a moment.")
-        # Load in thread to avoid blocking the event loop during heavy initialization
-        pipe = await asyncio.to_thread(_get_whisper_pipeline)
-    else:
-        pipe = _whisper_pipe
-
-    if not pipe:
-        error_text = "Error: Whisper model could not be loaded. Transcription is unavailable."
-        if status_msg:
-            await status_msg.edit_text(f"❌ {error_text}")
+    async with ChatActionSender.typing(bot=message.bot, chat_id=message.chat.id):
+        global _whisper_model, _whisper_processor, _whisper_pipe
+        status_msg = None
+        if _whisper_model is None:
+            status_msg = await message.reply("⏳ Loading transcription model for the first time... this may take a moment.")
+            model, processor, pipe = await asyncio.to_thread(_get_whisper_components)
         else:
-            await message.answer(error_text)
-        return
+            model, processor, pipe = _whisper_model, _whisper_processor, _whisper_pipe
 
-    # Check if it's a voice or audio file
-    if message.voice:
-        file_id = message.voice.file_id
-        file_ext = "ogg" # Telegram voice messages are usually .ogg (Opus)
-    elif message.audio:
-        file_id = message.audio.file_id
-        file_ext = message.audio.file_name.split('.')[-1] if message.audio.file_name else "mp3"
-    else:
-        return
+        if not model or not processor:
+            error_text = "Error: Whisper model could not be loaded. Transcription is unavailable."
+            if status_msg:
+                await status_msg.edit_text(f"❌ {error_text}")
+            else:
+                await message.answer(error_text)
+            return
 
-    # Create directory structure: audio/YYYY-MM-DD/
-    now = datetime.now()
-    date_str = now.strftime("%Y-%m-%d")
-    target_dir = AUDIO_FOLDER / date_str
-    target_dir.mkdir(parents=True, exist_ok=True)
-
-    # Prepare file name components
-    user_part = message.from_user.username or str(message.from_user.id)
-    chat_part = message.chat.title or "private"
-    
-    if message.voice:
-        orig_name = "voice"
-    else:
-        orig_name = Path(message.audio.file_name).stem if message.audio.file_name else "audio"
-
-    # Sanitize components (remove non-alphanumeric except some allowed chars)
-    def sanitize(s):
-        return "".join(c if c.isalnum() or c in "-_" else "_" for c in s)
-
-    user_part = sanitize(user_part)
-    chat_part = sanitize(chat_part)
-    orig_name = sanitize(orig_name)
-    timestamp = now.strftime("%H%M%S")
-
-    temp_file_name = f"{user_part}-{chat_part}-{orig_name}_{timestamp}.{file_ext}"
-    temp_file_path = target_dir / temp_file_name
-
-    try:
-        # Download the file
-        bot = message.bot
-        file_info = await bot.get_file(file_id)
-        await bot.download_file(file_info.file_path, destination=temp_file_path)
-
-        # Transcribe using OpenVINO Whisper Pipeline
-        logger.info(f"Transcribing {temp_file_path}...")
-        
-        if status_msg:
-            await status_msg.edit_text("🔄 Transcribing audio...")
-        
-        # Load audio data as numpy array (Whisper expects 16kHz float32)
-        audio_data = load_audio(temp_file_path)
-        
-        # Generate transcription using pipeline (handles long audio)
-        result = pipe(audio_data)
-        transcription_text = result.get("text", "").strip()
-
-        if not transcription_text:
-            transcription_text = "[No speech detected]"
-
-        # Save transcription to a .txt file
-        txt_file_path = temp_file_path.with_suffix(".txt")
-        with open(txt_file_path, "w", encoding="utf-8") as f:
-            f.write(transcription_text)
-
-        # Send response to group
-        response = f"🎤 Transcription for {message.from_user.full_name}:\n\n<blockquote expandable>{transcription_text}</blockquote>"
-        await message.reply(response)
-        
-        if status_msg:
-            await status_msg.delete()
-
-    except Exception as e:
-        logger.error(f"Error processing audio message: {e}")
-        error_text = f"Failed to transcribe audio: {str(e)}"
-        if status_msg:
-            await status_msg.edit_text(f"❌ {error_text}")
+        if message.voice:
+            file_id = message.voice.file_id
+            file_ext = "ogg" 
+        elif message.audio:
+            file_id = message.audio.file_id
+            file_ext = message.audio.file_name.split('.')[-1] if message.audio.file_name else "mp3"
         else:
-            await message.reply(error_text)
+            return
+
+        now = datetime.now()
+        date_str = now.strftime("%Y-%m-%d")
+        target_dir = AUDIO_FOLDER / date_str
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        user_part = message.from_user.username or str(message.from_user.id)
+        chat_part = message.chat.title or "private"
+        orig_name = "voice" if message.voice else (Path(message.audio.file_name).stem if message.audio.file_name else "audio")
+
+        def sanitize(s):
+            return "".join(c if c.isalnum() or c in "-_" else "_" for c in s)
+
+        temp_file_path = target_dir / f"{sanitize(user_part)}-{sanitize(chat_part)}-{sanitize(orig_name)}_{now.strftime('%H%M%S')}.{file_ext}"
+
+        try:
+            bot = message.bot
+            file_info = await bot.get_file(file_id)
+            await bot.download_file(file_info.file_path, destination=temp_file_path)
+
+            logger.info(f"Transcribing {temp_file_path}...")
+            
+            if not status_msg:
+                status_msg = await message.reply("🔄 Transcribing audio...")
+            else:
+                await status_msg.edit_text("🔄 Transcribing audio...")
+            
+            audio_data = await asyncio.to_thread(load_audio, temp_file_path)
+            input_features = processor(audio_data, sampling_rate=16000, return_tensors="pt").input_features
+            
+            streamer = TelegramStreamer(status_msg, processor)
+            
+            def run_generate():
+                return model.generate(input_features, streamer=streamer, max_new_tokens=448)
+
+            result_tokens = await asyncio.to_thread(run_generate)
+            transcription_text = processor.batch_decode(result_tokens, skip_special_tokens=True)[0].strip()
+
+            if not transcription_text:
+                transcription_text = "[No speech detected]"
+
+            txt_file_path = temp_file_path.with_suffix(".txt")
+            with open(txt_file_path, "w", encoding="utf-8") as f:
+                f.write(transcription_text)
+
+            response = f"🎤 Transcription for {message.from_user.full_name}:\n\n<blockquote expandable>{transcription_text}</blockquote>"
+            await message.reply(response)
+            
+            if status_msg:
+                await status_msg.delete()
+
+        except Exception as e:
+            logger.error(f"Error processing audio message: {e}")
+            error_text = f"Failed to transcribe audio: {str(e)}"
+            if status_msg:
+                try:
+                    await status_msg.edit_text(f"❌ {error_text}")
+                except Exception:
+                    await message.answer(f"❌ {error_text}")
+            else:
+                await message.reply(error_text)
