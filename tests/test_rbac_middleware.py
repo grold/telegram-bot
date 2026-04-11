@@ -6,15 +6,13 @@ from database import init_db, DATABASE_PATH, set_command_min_role, grant_user_ac
 from middlewares.auth import AuthMiddleware
 
 @pytest.fixture(autouse=True)
-def setup_db():
-    init_db()
-    # Clear DB
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM users")
-    cursor.execute("DELETE FROM command_permissions")
-    conn.commit()
-    conn.close()
+def setup_db(tmp_path):
+    """Ensure the database is initialized before each test using a temporary file."""
+    db_path = tmp_path / "test_auth.db"
+    with patch("database.DATABASE_PATH", str(db_path)):
+        init_db()
+        # No need to DELETE FROM users as we're using a fresh temp file for each test
+        yield db_path
 
 @pytest.mark.asyncio
 async def test_auth_middleware_public_command():

@@ -8,15 +8,13 @@ from database import init_db, get_recent_logs, add_interaction_log
 from config import DATABASE_PATH
 
 @pytest.fixture(autouse=True)
-def setup_database():
-    """Ensure the database is initialized before each test."""
-    init_db()
-    # Clear logs table for a clean test state
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM logs")
-    conn.commit()
-    conn.close()
+def setup_database(tmp_path):
+    """Ensure the database is initialized before each test using a temporary file."""
+    db_path = tmp_path / "test_error_logging.db"
+    with patch("database.DATABASE_PATH", str(db_path)):
+        init_db()
+        # No need to DELETE FROM logs as we're using a fresh temp file for each test
+        yield db_path
 
 @pytest.mark.asyncio
 async def test_middleware_logs_exception():

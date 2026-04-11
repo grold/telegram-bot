@@ -1,31 +1,30 @@
 import os
 import sqlite3
 import pytest
+from unittest.mock import patch
 from database import init_db, DATABASE_PATH, get_user
 from tools.migrate_auth import migrate_auth_file, AUTH_FILE, AUTH_BAK_FILE
 
 @pytest.fixture
-def clean_db():
+def clean_db(tmp_path):
     """Ensures a clean database and auth file for testing."""
-    init_db()
-    # Clear existing users for clean test
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM users")
-    conn.commit()
-    conn.close()
-    
-    if os.path.exists(AUTH_FILE):
-        os.remove(AUTH_FILE)
-    if os.path.exists(AUTH_BAK_FILE):
-        os.remove(AUTH_BAK_FILE)
-    
-    yield
-    
-    if os.path.exists(AUTH_FILE):
-        os.remove(AUTH_FILE)
-    if os.path.exists(AUTH_BAK_FILE):
-        os.remove(AUTH_BAK_FILE)
+    db_path = tmp_path / "test_migration.db"
+    with patch("database.DATABASE_PATH", str(db_path)), \
+         patch("tools.migrate_auth.DATABASE_PATH", str(db_path)):
+        init_db()
+        # No need to DELETE FROM users as we're using a fresh temp file
+        
+        if os.path.exists(AUTH_FILE):
+            os.remove(AUTH_FILE)
+        if os.path.exists(AUTH_BAK_FILE):
+            os.remove(AUTH_BAK_FILE)
+        
+        yield
+        
+        if os.path.exists(AUTH_FILE):
+            os.remove(AUTH_FILE)
+        if os.path.exists(AUTH_BAK_FILE):
+            os.remove(AUTH_BAK_FILE)
 
 def test_migration_from_auth_file(clean_db):
     """Verifies that user IDs from .auth are migrated to DB."""
