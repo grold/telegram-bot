@@ -22,7 +22,7 @@ async def test_telegram_streamer_updates_message():
         streamer.put(token)
         
         print(f"DEBUG: tokens={streamer.tokens}")
-        print(f"DEBUG: text='{streamer.text}'")
+        print(f"DEBUG: text='{streamer.current_chunk_text}'")
         print(f"DEBUG: mock_run.called={mock_run.called}")
         assert mock_run.called
 

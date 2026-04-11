@@ -24,6 +24,15 @@ _whisper_model = None
 _whisper_processor = None
 _whisper_pipe = None
 
+async def _edit_message_safe(message: types.Message, text: str):
+    """Helper to safely edit message from thread-safe coroutine."""
+    try:
+        await message.edit_text(text)
+    except Exception as e:
+        # Ignore errors like 'message is not modified' or 'message to edit not found'
+        if "message is not modified" not in str(e).lower():
+            logger.debug(f"Streaming edit failed: {e}")
+
 class TelegramStreamer:
     """
     Custom streamer that updates a Telegram message with partial transcription results.
@@ -35,7 +44,8 @@ class TelegramStreamer:
         self.interval = interval
         self.last_update = 0
         self.tokens = []
-        self.text = ""
+        self.current_chunk_text = ""
+        self.accumulated_text = ""
         self.loop = asyncio.get_event_loop()
 
     def put(self, value):
@@ -54,7 +64,6 @@ class TelegramStreamer:
         elif isinstance(value, (int, np.integer)):
             new_tokens = [int(value)]
         else:
-            # Fallback for other potential types
             try:
                 new_tokens = [int(value)]
             except (TypeError, ValueError):
@@ -66,27 +75,44 @@ class TelegramStreamer:
             self.update_message()
 
     def end(self):
-        """Called when generation is complete."""
+        """Called when generation is complete for a chunk."""
         self.update_message()
-        # Reset tokens for the next chunk if used with pipeline
+        # Accumulate text and clear tokens for next chunk
+        if self.current_chunk_text.strip():
+            if self.accumulated_text:
+                self.accumulated_text += " " + self.current_chunk_text.strip()
+            else:
+                self.accumulated_text = self.current_chunk_text.strip()
+        
         self.tokens = []
+        self.current_chunk_text = ""
 
     def update_message(self):
         """Updates the Telegram message with current accumulated text."""
-        if not self.tokens:
+        if not self.tokens and not self.accumulated_text:
             return
             
         try:
-            # use tokenizer.decode instead of processor.batch_decode[0]
+            # Decode current chunk
             if hasattr(self.processor, "tokenizer"):
                 new_text = self.processor.tokenizer.decode(self.tokens, skip_special_tokens=True)
             else:
                 new_text = self.processor.decode(self.tokens, skip_special_tokens=True)
-                
-            if new_text.strip() and new_text.strip() != self.text.strip():
-                self.text = new_text
+            
+            self.current_chunk_text = new_text
+            
+            # Combine with previous chunks
+            display_text = self.accumulated_text
+            if self.current_chunk_text.strip():
+                if display_text:
+                    display_text += " " + self.current_chunk_text.strip()
+                else:
+                    display_text = self.current_chunk_text.strip()
+
+            if display_text.strip() and display_text.strip() != self.message.text:
+                # Use helper to ensure we pass a real coroutine object
                 asyncio.run_coroutine_threadsafe(
-                    self.message.edit_text(f"🎤 {self.text}..."),
+                    _edit_message_safe(self.message, f"🎤 {display_text}..."),
                     self.loop
                 )
                 self.last_update = time.time()
@@ -217,8 +243,6 @@ async def handle_audio_message(message: types.Message):
             
             streamer = TelegramStreamer(status_msg, processor)
             
-            # Use the pipeline with streamer passed via generate_kwargs
-            # num_beams=1 is required for streaming
             def run_pipe():
                 return pipe(
                     audio_data, 
