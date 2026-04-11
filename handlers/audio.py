@@ -27,6 +27,7 @@ _whisper_pipe = None
 class TelegramStreamer:
     """
     Custom streamer that updates a Telegram message with partial transcription results.
+    Works with both model.generate and pipeline (which may call generate multiple times).
     """
     def __init__(self, message: types.Message, processor, interval=1.5):
         self.message = message
@@ -40,12 +41,24 @@ class TelegramStreamer:
     def put(self, value):
         """
         Called by the model when new tokens are generated.
-        value: tensor of shape [batch_size, 1] or [batch_size, seq_len]
+        value: can be a tensor or an int (when used with pipeline).
         """
-        if len(value.shape) > 1:
-            self.tokens.extend(value[0].tolist())
+        import torch
+        if isinstance(value, torch.Tensor):
+            if value.ndim > 1:
+                new_tokens = value[0].tolist()
+            else:
+                new_tokens = value.tolist()
+        elif isinstance(value, int):
+            new_tokens = [value]
         else:
-            self.tokens.extend(value.tolist())
+            # Fallback for other potential types
+            try:
+                new_tokens = [int(value)]
+            except (TypeError, ValueError):
+                return
+
+        self.tokens.extend(new_tokens)
             
         if time.time() - self.last_update > self.interval:
             self.update_message()
@@ -53,6 +66,8 @@ class TelegramStreamer:
     def end(self):
         """Called when generation is complete."""
         self.update_message()
+        # Reset tokens for the next chunk if used with pipeline
+        self.tokens = []
 
     def update_message(self):
         """Updates the Telegram message with current accumulated text."""
@@ -61,7 +76,7 @@ class TelegramStreamer:
             
         try:
             new_text = self.processor.batch_decode(self.tokens, skip_special_tokens=True)[0]
-            if new_text.strip() != self.text.strip():
+            if new_text.strip() and new_text.strip() != self.text.strip():
                 self.text = new_text
                 asyncio.run_coroutine_threadsafe(
                     self.message.edit_text(f"🎤 {self.text}..."),
@@ -73,11 +88,11 @@ class TelegramStreamer:
 
 def _get_whisper_components():
     """
-    Lazy loader for Whisper model and processor.
+    Lazy loader for Whisper model, processor, and pipeline.
     Performs heavy imports and initialization only on the first call.
     """
     global _whisper_model, _whisper_processor, _whisper_pipe
-    if _whisper_model is not None and _whisper_processor is not None:
+    if _whisper_pipe is not None:
         return _whisper_model, _whisper_processor, _whisper_pipe
 
     try:
@@ -142,13 +157,13 @@ async def handle_audio_message(message: types.Message):
     async with ChatActionSender.typing(bot=message.bot, chat_id=message.chat.id):
         global _whisper_model, _whisper_processor, _whisper_pipe
         status_msg = None
-        if _whisper_model is None:
+        if _whisper_pipe is None:
             status_msg = await message.reply("⏳ Loading transcription model for the first time... this may take a moment.")
             model, processor, pipe = await asyncio.to_thread(_get_whisper_components)
         else:
             model, processor, pipe = _whisper_model, _whisper_processor, _whisper_pipe
 
-        if not model or not processor:
+        if not pipe or not processor:
             error_text = "Error: Whisper model could not be loaded. Transcription is unavailable."
             if status_msg:
                 await status_msg.edit_text(f"❌ {error_text}")
@@ -192,15 +207,19 @@ async def handle_audio_message(message: types.Message):
                 await status_msg.edit_text("🔄 Transcribing audio...")
             
             audio_data = await asyncio.to_thread(load_audio, temp_file_path)
-            input_features = processor(audio_data, sampling_rate=16000, return_tensors="pt").input_features
             
             streamer = TelegramStreamer(status_msg, processor)
             
-            def run_generate():
-                return model.generate(input_features, streamer=streamer, max_new_tokens=440)
+            # Use the pipeline with streamer passed via generate_kwargs
+            # num_beams=1 is required for streaming
+            def run_pipe():
+                return pipe(
+                    audio_data, 
+                    generate_kwargs={"streamer": streamer, "num_beams": 1, "max_new_tokens": 440}
+                )
 
-            result_tokens = await asyncio.to_thread(run_generate)
-            transcription_text = processor.batch_decode(result_tokens, skip_special_tokens=True)[0].strip()
+            result = await asyncio.to_thread(run_pipe)
+            transcription_text = result['text'].strip()
 
             if not transcription_text:
                 transcription_text = "[No speech detected]"

@@ -83,7 +83,7 @@ async def test_handle_audio_message_uses_chataction_sender():
         
         # Verify ChatActionSender.typing was called
         mock_typing.assert_called_once()
-        # Verify model.generate was called
-        assert generate_mock.called
+        # Verify pipe was called
+        assert pipe.called
 
 

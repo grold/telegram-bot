@@ -40,10 +40,8 @@ async def test_handle_voice_message():
     processor = MagicMock()
     pipe = MagicMock()
     
-    # Mock return values for generate
-    model.generate.return_value = torch.tensor([[1, 2, 3]])
-    processor.batch_decode.return_value = ["Hello world"]
-    processor.return_value.input_features = torch.tensor([[[1.0]]])
+    # Mock return values for pipe
+    pipe.return_value = {"text": "Hello world"}
     
     with (
         patch("handlers.audio.FFMPEG_AVAILABLE", True),
@@ -60,8 +58,8 @@ async def test_handle_voice_message():
             
             await handle_audio_message(message)
             
-            # Verify model.generate was called
-            assert model.generate.called
+            # Verify pipe was called
+            assert pipe.called
             # Verify response was sent
             message.reply.assert_any_call("🎤 Transcription for Test User:\n\n<blockquote expandable>Hello world</blockquote>")
 
@@ -100,10 +98,8 @@ async def test_handle_audio_file():
     processor = MagicMock()
     pipe = MagicMock()
     
-    # Mock return values for generate
-    model.generate.return_value = torch.tensor([[1, 2, 3]])
-    processor.batch_decode.return_value = ["Audio transcription test"]
-    processor.return_value.input_features = torch.tensor([[[1.0]]])
+    # Mock return values for pipe
+    pipe.return_value = {"text": "Audio transcription test"}
     
     with (
         patch("handlers.audio.FFMPEG_AVAILABLE", True),
@@ -120,7 +116,7 @@ async def test_handle_audio_file():
             
             await handle_audio_message(message)
             
-            # Verify model.generate was called
-            assert model.generate.called
+            # Verify pipe was called
+            assert pipe.called
             # Verify response was sent
             message.reply.assert_any_call("🎤 Transcription for Test User:\n\n<blockquote expandable>Audio transcription test</blockquote>")
