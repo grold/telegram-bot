@@ -197,7 +197,7 @@ async def handle_audio_message(message: types.Message):
             streamer = TelegramStreamer(status_msg, processor)
             
             def run_generate():
-                return model.generate(input_features, streamer=streamer, max_new_tokens=448)
+                return model.generate(input_features, streamer=streamer, max_new_tokens=440)
 
             result_tokens = await asyncio.to_thread(run_generate)
             transcription_text = processor.batch_decode(result_tokens, skip_special_tokens=True)[0].strip()
