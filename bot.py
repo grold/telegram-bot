@@ -1,9 +1,10 @@
 import asyncio
 import logging
+import sys
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from config import BOT_TOKEN, AUDIO_CLEANUP_DAYS
-from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, audio, circle, camera, rate, mygroups, webcams, admin_mgmt
+from handlers import start, help, time, top, photo, group, auto_reply, weather, forecast, inline, log, audio, circle, camera, rate, mygroups, webcams, admin_mgmt, exif_weather
 from tools.cleanup_audio import cleanup_old_audio
 from tools.migrate_auth import migrate_auth_file
 from database import init_db
@@ -44,6 +45,7 @@ async def main():
     dp.message.middleware(AuthMiddleware())
 
     # Register routers
+    dp.include_router(exif_weather.router)
     dp.include_router(inline.router) # Inline queries
     dp.include_router(start.router)
     dp.include_router(help.router)
