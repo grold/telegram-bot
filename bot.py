@@ -21,6 +21,7 @@ async def main():
     # Initialize database and migrate auth if needed
     init_db()
     migrate_auth_file()
+    logging.info(f"Telegram Bot version {BOT_VERSION} started.")
 
     # Run cleanup on startup if enabled
     if AUDIO_CLEANUP_DAYS > 0:
