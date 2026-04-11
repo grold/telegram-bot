@@ -45,12 +45,14 @@ class TelegramStreamer:
         """
         import torch
         if isinstance(value, torch.Tensor):
-            if value.ndim > 1:
-                new_tokens = value[0].tolist()
-            else:
+            if value.ndim == 0:
+                new_tokens = [value.item()]
+            elif value.ndim == 1:
                 new_tokens = value.tolist()
-        elif isinstance(value, int):
-            new_tokens = [value]
+            else:
+                new_tokens = value[0].tolist()
+        elif isinstance(value, (int, np.integer)):
+            new_tokens = [int(value)]
         else:
             # Fallback for other potential types
             try:
@@ -75,7 +77,12 @@ class TelegramStreamer:
             return
             
         try:
-            new_text = self.processor.batch_decode(self.tokens, skip_special_tokens=True)[0]
+            # use tokenizer.decode instead of processor.batch_decode[0]
+            if hasattr(self.processor, "tokenizer"):
+                new_text = self.processor.tokenizer.decode(self.tokens, skip_special_tokens=True)
+            else:
+                new_text = self.processor.decode(self.tokens, skip_special_tokens=True)
+                
             if new_text.strip() and new_text.strip() != self.text.strip():
                 self.text = new_text
                 asyncio.run_coroutine_threadsafe(
