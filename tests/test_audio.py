@@ -1,4 +1,6 @@
 import pytest
+import torch
+import numpy as np
 from unittest.mock import AsyncMock, MagicMock, patch
 from aiogram.types import Message, Voice, Audio, User
 from handlers.audio import handle_audio_message
@@ -8,7 +10,10 @@ from pathlib import Path
 async def test_handle_voice_message():
     # Mock message and bot
     message = AsyncMock(spec=Message)
-    message.reply = AsyncMock()
+    status_msg = AsyncMock(spec=Message)
+    status_msg.delete = AsyncMock()
+    status_msg.edit_text = AsyncMock()
+    message.reply = AsyncMock(return_value=status_msg)
     message.answer = AsyncMock()
     message.voice = MagicMock(spec=Voice)
     message.voice.file_id = "voice_file_id"
@@ -23,6 +28,7 @@ async def test_handle_voice_message():
     
     mock_chat = MagicMock()
     mock_chat.title = "Test Group"
+    mock_chat.id = 67890
     message.chat = mock_chat
     
     # Mock bot
@@ -32,14 +38,20 @@ async def test_handle_voice_message():
     file_info.file_path = "path/to/voice.ogg"
     bot.get_file.return_value = file_info
     
-    # Mock Whisper pipeline and load_audio
+    # Mock Whisper components
+    model = MagicMock()
+    processor = MagicMock()
+    pipe = MagicMock()
+    
+    # Mock return values for pipe
+    pipe.return_value = {"text": "Hello world"}
+    
     with (
-        patch("handlers.audio._whisper_pipe") as mock_pipe,
-        patch("handlers.audio.load_audio") as mock_load_audio
+        patch("handlers.audio.FFMPEG_AVAILABLE", True),
+        patch("handlers.audio._get_whisper_components", return_value=(model, processor, pipe)),
+        patch("handlers.audio.load_audio", return_value=np.zeros(16000)),
+        patch("handlers.audio.ChatActionSender.typing", new_callable=MagicMock)
     ):
-        mock_load_audio.return_value = "mock_audio_data"
-        mock_pipe.return_value = {"text": "Hello world"}
-        
         # Mock directory creation and file writing
         with (
             patch("pathlib.Path.mkdir"),
@@ -47,18 +59,33 @@ async def test_handle_voice_message():
             patch("builtins.open", MagicMock())
         ):
             
+            # Ensure _whisper_pipe is None initially to trigger "Loading..." message
+            import handlers.audio
+            handlers.audio._whisper_pipe = None
+            
             await handle_audio_message(message)
             
-            # Verify pipeline was called
-            mock_pipe.assert_called_once_with("mock_audio_data")
-            # Verify response was sent
-            message.reply.assert_called_once_with("🎤 Transcription for Test User:\n\n<blockquote expandable>Hello world</blockquote>")
+            # Verify pipe was called
+            assert pipe.called
+            
+            # Verify initial "Loading..." reply
+            message.reply.assert_any_call("⏳ Loading transcription model for the first time... this may take a moment.")
+            
+            # Verify update to "Transcribing..."
+            status_msg.edit_text.assert_any_call("🔄 Transcribing audio...")
+            
+            # Verify final transcription was sent as a new reply
+            message.reply.assert_any_call("🎤 Transcription for Test User:\n\n<blockquote expandable>Hello world</blockquote>")
+            assert status_msg.delete.called
 
 @pytest.mark.asyncio
 async def test_handle_audio_file():
     # Mock message and bot
     message = AsyncMock(spec=Message)
-    message.reply = AsyncMock()
+    status_msg = AsyncMock(spec=Message)
+    status_msg.delete = AsyncMock()
+    status_msg.edit_text = AsyncMock()
+    message.reply = AsyncMock(return_value=status_msg)
     message.answer = AsyncMock()
     message.voice = None
     message.audio = MagicMock(spec=Audio)
@@ -74,6 +101,7 @@ async def test_handle_audio_file():
     
     mock_chat = MagicMock()
     mock_chat.title = "Test Group"
+    mock_chat.id = 67890
     message.chat = mock_chat
     
     # Mock bot
@@ -83,23 +111,41 @@ async def test_handle_audio_file():
     file_info.file_path = "path/to/test.mp3"
     bot.get_file.return_value = file_info
     
-    # Mock Whisper pipeline and load_audio
+    # Mock Whisper components
+    model = MagicMock()
+    processor = MagicMock()
+    pipe = MagicMock()
+    
+    # Mock return values for pipe
+    pipe.return_value = {"text": "Audio transcription test"}
+    
     with (
-        patch("handlers.audio._whisper_pipe") as mock_pipe,
-        patch("handlers.audio.load_audio") as mock_load_audio
+        patch("handlers.audio.FFMPEG_AVAILABLE", True),
+        patch("handlers.audio._get_whisper_components", return_value=(model, processor, pipe)),
+        patch("handlers.audio.load_audio", return_value=np.zeros(16000)),
+        patch("handlers.audio.ChatActionSender.typing", new_callable=MagicMock)
     ):
-        mock_load_audio.return_value = "mock_audio_data"
-        mock_pipe.return_value = {"text": "Audio transcription test"}
-        
         # Mock directory creation and file writing
         with (
+            patch("pathlib.Path.mkdir"),
             patch("pathlib.Path.mkdir"),
             patch("builtins.open", MagicMock())
         ):
             
+            import handlers.audio
+            handlers.audio._whisper_pipe = None
+            
             await handle_audio_message(message)
             
-            # Verify pipeline was called
-            mock_pipe.assert_called_once_with("mock_audio_data")
-            # Verify response was sent
-            message.reply.assert_called_once_with("🎤 Transcription for Test User:\n\n<blockquote expandable>Audio transcription test</blockquote>")
+            # Verify pipe was called
+            assert pipe.called
+            
+            # Verify initial "Loading..." reply
+            message.reply.assert_any_call("⏳ Loading transcription model for the first time... this may take a moment.")
+            
+            # Verify update to "Transcribing..."
+            status_msg.edit_text.assert_any_call("🔄 Transcribing audio...")
+            
+            # Verify final transcription
+            message.reply.assert_any_call("🎤 Transcription for Test User:\n\n<blockquote expandable>Audio transcription test</blockquote>")
+            assert status_msg.delete.called

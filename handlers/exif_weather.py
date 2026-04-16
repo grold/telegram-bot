@@ -4,6 +4,7 @@ import aiohttp
 from datetime import datetime
 from PIL import Image, ExifTags
 from aiogram import Router, types, F, Bot
+from aiogram.utils.chat_action import ChatActionSender
 from aiogram.types import FSInputFile
 
 router = Router()
@@ -137,38 +138,39 @@ def get_weather_condition(code):
 
 async def process_photo_for_exif(message: types.Message, bot: Bot, file_id: str):
     """Common logic for processing photo or document."""
-    file = await bot.get_file(file_id)
-    file_bytes = await bot.download_file(file.file_path)
-    # Convert BytesIO to raw bytes
-    raw_bytes = file_bytes.read()
-    
-    coords, dt_str = extract_exif_data(raw_bytes)
-    
-    if coords and coords[0] is not None and coords[1] is not None and dt_str:
-        lat, lon = coords
-        weather = await fetch_historical_weather(lat, lon, dt_str)
+    async with ChatActionSender.find_location(bot=bot, chat_id=message.chat.id):
+        file = await bot.get_file(file_id)
+        file_bytes = await bot.download_file(file.file_path)
+        # Convert BytesIO to raw bytes
+        raw_bytes = file_bytes.read()
         
-        if weather:
-            condition = get_weather_condition(weather['code'])
+        coords, dt_str = extract_exif_data(raw_bytes)
+        
+        if coords and coords[0] is not None and coords[1] is not None and dt_str:
+            lat, lon = coords
+            weather = await fetch_historical_weather(lat, lon, dt_str)
             
-            # Send map
-            await message.answer_location(latitude=lat, longitude=lon)
-            
-            # Send report
-            report = (
-                f"<b>📍 Photo Location:</b> <code>{lat:.4f}, {lon:.4f}</code>\n"
-                f"<b>📅 Taken on:</b> <code>{weather['date']}</code> at <code>{weather['time']}</code>\n\n"
-                f"🌡️ <b>Temperature:</b> <code>{weather['temp']}°C</code>\n"
-                f"☁️ <b>Condition:</b> <code>{condition}</code>\n"
-                f"💧 <b>Humidity:</b> <code>{weather['humidity']}%</code>\n"
-                f"💨 <b>Wind Speed:</b> <code>{weather['wind']} km/h</code>\n"
-                f"🌥️ <b>Cloud Cover:</b> <code>{weather['clouds']}%</code>"
-            )
-            await message.answer(report)
+            if weather:
+                condition = get_weather_condition(weather['code'])
+                
+                # Send map
+                await message.answer_location(latitude=lat, longitude=lon)
+                
+                # Send report
+                report = (
+                    f"<b>📍 Photo Location:</b> <code>{lat:.4f}, {lon:.4f}</code>\n"
+                    f"<b>📅 Taken on:</b> <code>{weather['date']}</code> at <code>{weather['time']}</code>\n\n"
+                    f"🌡️ <b>Temperature:</b> <code>{weather['temp']}°C</code>\n"
+                    f"☁️ <b>Condition:</b> <code>{condition}</code>\n"
+                    f"💧 <b>Humidity:</b> <code>{weather['humidity']}%</code>\n"
+                    f"💨 <b>Wind Speed:</b> <code>{weather['wind']} km/h</code>\n"
+                    f"🌥️ <b>Cloud Cover:</b> <code>{weather['clouds']}%</code>"
+                )
+                await message.answer(report)
+            else:
+                logger.info(f"Could not fetch weather for coordinates {coords} and date {dt_str}")
         else:
-            logger.info(f"Could not fetch weather for coordinates {coords} and date {dt_str}")
-    else:
-        logger.info(f"No EXIF GPS/Date found in file {file_id} from user {message.from_user.id}")
+            logger.info(f"No EXIF GPS/Date found in file {file_id} from user {message.from_user.id}")
 
 @router.message(F.photo)
 async def handle_photo(message: types.Message, bot: Bot):

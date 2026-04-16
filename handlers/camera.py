@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 from requests.auth import HTTPDigestAuth, HTTPBasicAuth
 from aiogram import Router, types
+from aiogram.utils.chat_action import ChatActionSender
 from aiogram.filters import Command, CommandObject
 from aiogram.types import BufferedInputFile, FSInputFile
 from onvif import ONVIFCamera
@@ -239,113 +240,115 @@ async def cmd_camera(message: types.Message, command: CommandObject):
     subcommand = args[0].lower() if args else None
     
     if subcommand == "screenshot":
-        processing_msg = await message.answer("📸 Connecting to camera and capturing screenshot...")
-        
-        try:
-            snapshot_uri, rtsp_uri = await get_camera_snapshot()
-            image_content = None
+        async with ChatActionSender.upload_photo(bot=message.bot, chat_id=message.chat.id):
+            processing_msg = await message.answer("📸 Connecting to camera and capturing screenshot...")
             
-            # 1. Try Snapshot URI
-            if snapshot_uri:
-                def download_image():
-                    try:
-                        response = requests.get(
-                            snapshot_uri, 
-                            auth=HTTPDigestAuth(CAMERA_USER, CAMERA_PASSWORD), 
-                            timeout=10.0,
-                            verify=False
-                        )
-                        if response.status_code == 401:
+            try:
+                snapshot_uri, rtsp_uri = await get_camera_snapshot()
+                image_content = None
+                
+                # 1. Try Snapshot URI
+                if snapshot_uri:
+                    def download_image():
+                        try:
                             response = requests.get(
                                 snapshot_uri, 
-                                auth=HTTPBasicAuth(CAMERA_USER, CAMERA_PASSWORD), 
+                                auth=HTTPDigestAuth(CAMERA_USER, CAMERA_PASSWORD), 
                                 timeout=10.0,
                                 verify=False
                             )
-                        return response if response.status_code == 200 and response.content else None
-                    except Exception:
-                        return None
+                            if response.status_code == 401:
+                                response = requests.get(
+                                    snapshot_uri, 
+                                    auth=HTTPBasicAuth(CAMERA_USER, CAMERA_PASSWORD), 
+                                    timeout=10.0,
+                                    verify=False
+                                )
+                            return response if response.status_code == 200 and response.content else None
+                        except Exception:
+                            return None
 
-                response = await asyncio.to_thread(download_image)
-                if response:
-                    image_content = response.content
+                    response = await asyncio.to_thread(download_image)
+                    if response:
+                        image_content = response.content
 
-            # 2. Fallback to RTSP
-            if not image_content and rtsp_uri:
-                logger.info("Falling back to RTSP capture...")
-                image_content = await capture_rtsp_frame(rtsp_uri)
+                # 2. Fallback to RTSP
+                if not image_content and rtsp_uri:
+                    logger.info("Falling back to RTSP capture...")
+                    image_content = await capture_rtsp_frame(rtsp_uri)
 
-            # 3. Add Weather Overlay (NEW)
-            if image_content:
-                image_content = await overlay_weather_on_image(image_content, city_name="Izhevsk")
+                # 3. Add Weather Overlay (NEW)
+                if image_content:
+                    image_content = await overlay_weather_on_image(image_content, city_name="Izhevsk")
 
-            # 4. Save and Send
-            if image_content:
-                # Ensure directory exists
-                SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
-                
-                # Create timestamped filename
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-                filename = f"snapshot_{timestamp}.jpg"
-                filepath = SCREENSHOTS_DIR / filename
-                
-                # Save to disk
-                with open(filepath, "wb") as f:
-                    f.write(image_content)
-                logger.info(f"Saved snapshot to {filepath}")
-
-                # Send to Telegram
-                photo = BufferedInputFile(image_content, filename=filename)
-                await message.answer_photo(photo, caption=f"🖼️ Camera Snapshot from {CAMERA_IP}\nSaved as: <code>{filename}</code>")
-                await processing_msg.delete()
-            else:
-                await message.answer("❌ Failed to capture image from both Snapshot URI and RTSP stream.")
+                # 4. Save and Send
+                if image_content:
+                    # Ensure directory exists
+                    SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
                     
-        except Exception as e:
-            logger.error(f"Error in cmd_camera screenshot: {e}")
-            await message.answer(f"❌ Error capturing screenshot: {str(e)}")
-            
-    elif subcommand == "video":
-        duration = 5
-        if len(args) > 1:
-            try:
-                duration = int(args[1])
-                if duration <= 0:
-                    duration = 5
-                elif duration > MAX_VIDEO_DURATION:
-                    duration = MAX_VIDEO_DURATION
-            except ValueError:
-                duration = 5
+                    # Create timestamped filename
+                    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                    filename = f"snapshot_{timestamp}.jpg"
+                    filepath = SCREENSHOTS_DIR / filename
+                    
+                    # Save to disk
+                    with open(filepath, "wb") as f:
+                        f.write(image_content)
+                    logger.info(f"Saved snapshot to {filepath}")
 
-        processing_msg = await message.answer(f"🎥 Connecting to camera and recording {duration}s video...")
-        
-        try:
-            _, rtsp_uri = await get_camera_snapshot()
-            
-            if rtsp_uri:
-                # Ensure directory exists
-                SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
-                
-                # Create timestamped filename
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-                filename = f"video_{timestamp}.mp4"
-                filepath = SCREENSHOTS_DIR / filename
-                
-                success = await record_rtsp_video(rtsp_uri, duration, filepath)
-                
-                if success and filepath.exists() and filepath.stat().st_size > 0:
                     # Send to Telegram
-                    video = FSInputFile(filepath)
-                    await message.answer_video(video, caption=f"🎥 Camera Video from {CAMERA_IP} ({duration}s)\nSaved as: <code>{filename}</code>")
+                    photo = BufferedInputFile(image_content, filename=filename)
+                    await message.answer_photo(photo, caption=f"🖼️ Camera Snapshot from {CAMERA_IP}\nSaved as: <code>{filename}</code>")
                     await processing_msg.delete()
                 else:
-                    await message.answer("❌ Failed to record video from RTSP stream.")
-            else:
-                await message.answer("❌ No RTSP stream available for video recording.")
+                    await message.answer("❌ Failed to capture image from both Snapshot URI and RTSP stream.")
+                        
+            except Exception as e:
+                logger.error(f"Error in cmd_camera screenshot: {e}")
+                await message.answer(f"❌ Error capturing screenshot: {str(e)}")
+            
+    elif subcommand == "video":
+        async with ChatActionSender.upload_video(bot=message.bot, chat_id=message.chat.id):
+            duration = 5
+            if len(args) > 1:
+                try:
+                    duration = int(args[1])
+                    if duration <= 0:
+                        duration = 5
+                    elif duration > MAX_VIDEO_DURATION:
+                        duration = MAX_VIDEO_DURATION
+                except ValueError:
+                    duration = 5
+
+            processing_msg = await message.answer(f"🎥 Connecting to camera and recording {duration}s video...")
+            
+            try:
+                _, rtsp_uri = await get_camera_snapshot()
+                
+                if rtsp_uri:
+                    # Ensure directory exists
+                    SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
                     
-        except Exception as e:
-            logger.error(f"Error in cmd_camera video: {e}")
-            await message.answer(f"❌ Error recording video: {str(e)}")
+                    # Create timestamped filename
+                    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                    filename = f"video_{timestamp}.mp4"
+                    filepath = SCREENSHOTS_DIR / filename
+                    
+                    success = await record_rtsp_video(rtsp_uri, duration, filepath)
+                    
+                    if success and filepath.exists() and filepath.stat().st_size > 0:
+                        # Send to Telegram
+                        video = FSInputFile(filepath)
+                        await message.answer_video(video, caption=f"🎥 Camera Video from {CAMERA_IP} ({duration}s)\nSaved as: <code>{filename}</code>")
+                        await processing_msg.delete()
+                    else:
+                        await message.answer("❌ Failed to record video from RTSP stream.")
+                else:
+                    await message.answer("❌ No RTSP stream available for video recording.")
+                        
+            except Exception as e:
+                logger.error(f"Error in cmd_camera video: {e}")
+                await message.answer(f"❌ Error recording video: {str(e)}")
             
     else:
         await message.answer("Usage:\n<code>/camera screenshot</code>\n<code>/camera video [sec]</code>")
