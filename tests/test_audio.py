@@ -10,7 +10,10 @@ from pathlib import Path
 async def test_handle_voice_message():
     # Mock message and bot
     message = AsyncMock(spec=Message)
-    message.reply = AsyncMock()
+    status_msg = AsyncMock(spec=Message)
+    status_msg.delete = AsyncMock()
+    status_msg.edit_text = AsyncMock()
+    message.reply = AsyncMock(return_value=status_msg)
     message.answer = AsyncMock()
     message.voice = MagicMock(spec=Voice)
     message.voice.file_id = "voice_file_id"
@@ -56,18 +59,33 @@ async def test_handle_voice_message():
             patch("builtins.open", MagicMock())
         ):
             
+            # Ensure _whisper_pipe is None initially to trigger "Loading..." message
+            import handlers.audio
+            handlers.audio._whisper_pipe = None
+            
             await handle_audio_message(message)
             
             # Verify pipe was called
             assert pipe.called
-            # Verify response was sent
+            
+            # Verify initial "Loading..." reply
+            message.reply.assert_any_call("⏳ Loading transcription model for the first time... this may take a moment.")
+            
+            # Verify update to "Transcribing..."
+            status_msg.edit_text.assert_any_call("🔄 Transcribing audio...")
+            
+            # Verify final transcription was sent as a new reply
             message.reply.assert_any_call("🎤 Transcription for Test User:\n\n<blockquote expandable>Hello world</blockquote>")
+            assert status_msg.delete.called
 
 @pytest.mark.asyncio
 async def test_handle_audio_file():
     # Mock message and bot
     message = AsyncMock(spec=Message)
-    message.reply = AsyncMock()
+    status_msg = AsyncMock(spec=Message)
+    status_msg.delete = AsyncMock()
+    status_msg.edit_text = AsyncMock()
+    message.reply = AsyncMock(return_value=status_msg)
     message.answer = AsyncMock()
     message.voice = None
     message.audio = MagicMock(spec=Audio)
@@ -114,9 +132,20 @@ async def test_handle_audio_file():
             patch("builtins.open", MagicMock())
         ):
             
+            import handlers.audio
+            handlers.audio._whisper_pipe = None
+            
             await handle_audio_message(message)
             
             # Verify pipe was called
             assert pipe.called
-            # Verify response was sent
+            
+            # Verify initial "Loading..." reply
+            message.reply.assert_any_call("⏳ Loading transcription model for the first time... this may take a moment.")
+            
+            # Verify update to "Transcribing..."
+            status_msg.edit_text.assert_any_call("🔄 Transcribing audio...")
+            
+            # Verify final transcription
             message.reply.assert_any_call("🎤 Transcription for Test User:\n\n<blockquote expandable>Audio transcription test</blockquote>")
+            assert status_msg.delete.called

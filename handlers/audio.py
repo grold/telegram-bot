@@ -5,6 +5,7 @@ import subprocess
 import asyncio
 import time
 import numpy as np
+import torch
 from datetime import datetime
 from pathlib import Path
 from aiogram import Router, types, F
@@ -23,6 +24,8 @@ if not FFMPEG_AVAILABLE:
 _whisper_model = None
 _whisper_processor = None
 _whisper_pipe = None
+
+WHISPER_MAX_NEW_TOKENS = 440
 
 async def _edit_message_safe(message: types.Message, text: str):
     """Helper to safely edit message from thread-safe coroutine."""
@@ -53,7 +56,6 @@ class TelegramStreamer:
         Called by the model when new tokens are generated.
         value: can be a tensor or an int (when used with pipeline).
         """
-        import torch
         if isinstance(value, torch.Tensor):
             if value.ndim == 0:
                 new_tokens = [value.item()]
@@ -94,10 +96,7 @@ class TelegramStreamer:
             
         try:
             # Decode current chunk
-            if hasattr(self.processor, "tokenizer"):
-                new_text = self.processor.tokenizer.decode(self.tokens, skip_special_tokens=True)
-            else:
-                new_text = self.processor.decode(self.tokens, skip_special_tokens=True)
+            new_text = self.processor.decode(self.tokens, skip_special_tokens=True)
             
             self.current_chunk_text = new_text
             
@@ -246,7 +245,7 @@ async def handle_audio_message(message: types.Message):
             def run_pipe():
                 return pipe(
                     audio_data, 
-                    generate_kwargs={"streamer": streamer, "num_beams": 1, "max_new_tokens": 440}
+                    generate_kwargs={"streamer": streamer, "num_beams": 1, "max_new_tokens": WHISPER_MAX_NEW_TOKENS}
                 )
 
             result = await asyncio.to_thread(run_pipe)
