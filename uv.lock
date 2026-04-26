@@ -715,12 +715,12 @@ wheels = [
 
 [[package]]
 name = "ml-dtypes"
-version = "0.4.0"
+version = "0.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/50/17ab8a66d66bdf55ff6dea6fe2df424061cee65c6d772abc871bb563f91b/ml_dtypes-0.4.0.tar.gz", hash = "sha256:eaf197e72f4f7176a19fe3cb8b61846b38c6757607e7bf9cd4b1d84cd3e74deb", size = 692650, upload-time = "2024-04-01T16:11:49.812Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/39/7d/8d85fcba868758b3a546e6914e727abd8f29ea6918079f816975c9eecd63/ml_dtypes-0.3.2.tar.gz", hash = "sha256:533059bc5f1764fac071ef54598db358c167c51a718f68f5bb55e3dee79d2967", size = 692014, upload-time = "2024-01-03T19:21:23.615Z" }
 
 [[package]]
 name = "mpmath"
@@ -1701,7 +1701,7 @@ requires-dist = [
     { name = "ffmpeg-python", specifier = ">=0.2.0" },
     { name = "geopy", specifier = ">=2.4.1" },
     { name = "httpx", specifier = ">=0.27.0" },
-    { name = "ml-dtypes", specifier = "<0.4.1" },
+    { name = "ml-dtypes", specifier = "<0.4.0" },
     { name = "numpy", specifier = ">=1.26.0,<2.0.0" },
     { name = "onvif-zeep", specifier = ">=0.2.12" },
     { name = "optimum", extras = ["openvino"], specifier = ">=1.26.0" },
