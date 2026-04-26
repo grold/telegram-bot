@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1
-ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu
 
 # Install dependencies into a portable directory
 COPY pyproject.toml uv.lock ./
