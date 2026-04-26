@@ -1,5 +1,5 @@
 # --- Builder Stage ---
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
 # Install build tools needed for compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,7 +15,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 # --- Final Runner Stage ---
-FROM python:3.13-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 # Install ONLY runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

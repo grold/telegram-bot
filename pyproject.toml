@@ -3,7 +3,7 @@ name = "telegram-bot"
 version = "0.7.6"
 description = "telegram bot experiments"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "aiogram>=3.25.0",
     "geopy>=2.4.1",
