@@ -23,7 +23,6 @@ photos/
 audio
 audio/
 screenshots/
-uv.lock
 
 # gemini-cli settings
 .gemini/

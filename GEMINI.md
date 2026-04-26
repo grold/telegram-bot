@@ -26,6 +26,7 @@
 - **Technical Mandate (Workflow):** Do not attempt to modify source code while in 'Plan Mode'. Use Plan Mode strictly for research, strategy design, and plan documentation. Implementation must occur in 'Auto-Edit' mode after exiting Plan Mode.
 - **Technical Mandate (Documentation):** Every new user-facing command must be documented in the `cmd_help` handler in `handlers/help.py`.
 - **Technical Mandate (Git):** Always verify the repository's default branch name (using `git remote show origin` or `list_branches`) before creating a pull request to avoid 'invalid base' errors.
+- **Technical Mandate (Environment):** After a system upgrade or Python version change, always run `uv sync` to ensure the virtual environment and its dependencies are correctly linked and functional.
 - **Project Context:** This is a modular `aiogram 3` bot. New features should be added as separate routers in `handlers/` and registered in `bot.py`.
 
 ## Coding Style
