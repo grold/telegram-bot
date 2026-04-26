@@ -3,8 +3,8 @@
 ## Version 0.7.7 (2026-04-26)
 
 ### Improvements & Bug Fixes
-- **AI Dependencies Fix**: Pinned `optimum`, `optimum-intel`, and `transformers` to stable versions.
-    - This fixes the `cannot import name 'merge_decoders' from 'optimum.onnx'` error caused by recent incompatible updates in the `optimum` ecosystem.
+- **AI Dependencies Fix**: Pinned `optimum` (1.23.3), `optimum-intel` (1.19.0), and `openvino` (2024.6.0).
+    - This fixes both the `cannot import name 'merge_decoders' from 'optimum.onnx'` and the `No module named 'openvino.runtime'` errors by using a proven, stable stack for Whisper on Intel GPUs.
 
 ## Version 0.7.6 (2026-04-26)
 
