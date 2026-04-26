@@ -3,8 +3,8 @@
 ## Version 0.7.6 (2026-04-26)
 
 ### Improvements & Bug Fixes
-- **Hardware Compatibility Fix**: Downgraded `numpy` (to 1.26.4) and `timezonefinder` (to 7.0.2).
-    - This fixes the `RuntimeError: NumPy was built with baseline optimizations (X86_V2)` error on older CPUs that only support the `x86-64-v1` instruction set.
+- **Hardware Compatibility Fix**: Switched to **Python 3.12** and downgraded `numpy` (to 1.26.4) and `timezonefinder` (to 7.0.2).
+    - This allows the use of **pre-compiled binaries (wheels)** for NumPy 1.x, completely skipping the need for a C compiler during build and fixing the `X86_V2` error on older CPUs.
 
 ## Version 0.7.5 (2026-04-26)
 
