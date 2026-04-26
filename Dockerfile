@@ -1,38 +1,45 @@
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+# --- Builder Stage ---
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 
-# Install system dependencies
+# Install build tools needed for compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    intel-opencl-icd \
-    tzdata \
-    fonts-dejavu-core \
     build-essential \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+WORKDIR /app
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu
+
+# Install dependencies into a portable directory
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+# --- Final Runner Stage ---
+FROM python:3.13-slim-bookworm
+
+# Install ONLY runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    intel-opencl-icd \
+    fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Set environment variables
-ENV UV_COMPILE_BYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
-
-# Sync dependencies (frozen ensures we use uv.lock)
-RUN uv sync --frozen --no-dev
-
-# Copy application code
+# Copy the virtual environment from the builder
+COPY --from=builder /app/.venv /app/.venv
 COPY . .
 
 # Ensure data directory exists
 RUN mkdir -p /app/data
 
-# Default environment variables (can be overridden by Coolify)
+# Copy the uv binary from the builder
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
+
+# Ensure paths match your config
 ENV DATABASE_PATH=/app/data/map.db
 ENV AUDIO_FOLDER=/app/data/audio
 ENV SCREENSHOTS_DIR=/app/data/screenshots
 
-# Command to run the bot
 CMD ["uv", "run", "python", "bot.py"]
