@@ -107,7 +107,7 @@ This bot is optimized for deployment via [Coolify](https://coolify.io/) using a 
 ### Build Optimizations
 The provided `Dockerfile` includes the following optimizations:
 - **Python 3.13**: Uses the official `uv` image with Python 3.13 to leverage pre-compiled binaries (wheels), significantly reducing build times.
-- **CPU-Only Torch**: Optimized for environments without NVIDIA GPUs (like Intel Iris Graphics) by using the CPU-only index for PyTorch (`UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu`). This reduces the image size by ~2GB.
+- **CPU-Only Torch**: Optimized for environments without NVIDIA GPUs (like Intel Iris Graphics) by configuring `uv` to use the CPU-only index. The `uv.lock` is pinned to `+cpu` versions, eliminating ~2.5GB of NVIDIA CUDA and Triton dependencies.
 - **Multi-Stage Build**: Utilizes a builder stage to compile dependencies and a slim runner stage for production, resulting in a lightweight and secure final image.
 
 ### Setup Steps

@@ -6,7 +6,7 @@
 - **Coolify Deployment Setup**: Added a `Dockerfile` and `.dockerignore` for deploying to Coolify.
 - **Finalized Optimization Summary**:
     - **Python 3.13**: Switched back from 3.14 to ensure pre-compiled binaries (wheels) are available for most libraries, significantly speeding up the build.
-    - **CPU-Only Torch**: Added `UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu` to skip downloading ~2GB of NVIDIA CUDA libraries since you are using Intel Iris Graphics.
+    - **CPU-Only Torch**: Explicitly configured `uv` to use the CPU-only PyTorch index and updated `uv.lock`. This successfully removed all NVIDIA CUDA and Triton dependencies from the dependency tree, saving ~2.5GB of downloads.
 
 ## Version 0.7.2 (2026-04-11)
 
