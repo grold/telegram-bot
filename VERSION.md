@@ -1,5 +1,11 @@
 # Version History
 
+## Version 0.7.7 (2026-04-26)
+
+### Improvements & Bug Fixes
+- **AI Dependencies Fix**: Pinned `optimum`, `optimum-intel`, and `transformers` to stable versions.
+    - This fixes the `cannot import name 'merge_decoders' from 'optimum.onnx'` error caused by recent incompatible updates in the `optimum` ecosystem.
+
 ## Version 0.7.6 (2026-04-26)
 
 ### Improvements & Bug Fixes
