@@ -1,5 +1,11 @@
 # Version History
 
+## Version 0.7.6 (2026-04-26)
+
+### Improvements & Bug Fixes
+- **Hardware Compatibility Fix**: Downgraded `numpy` (to 1.26.4) and `timezonefinder` (to 7.0.2).
+    - This fixes the `RuntimeError: NumPy was built with baseline optimizations (X86_V2)` error on older CPUs that only support the `x86-64-v1` instruction set.
+
 ## Version 0.7.5 (2026-04-26)
 
 ### New Features & Improvements
