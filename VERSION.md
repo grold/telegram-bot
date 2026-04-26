@@ -1,5 +1,13 @@
 # Version History
 
+## Version 0.7.5 (2026-04-26)
+
+### New Features & Improvements
+- **Coolify Deployment Setup**: Added a `Dockerfile` and `.dockerignore` for deploying to Coolify.
+- **Finalized Optimization Summary**:
+    - **Python 3.13**: Switched back from 3.14 to ensure pre-compiled binaries (wheels) are available for most libraries, significantly speeding up the build.
+    - **CPU-Only Torch**: Added `UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu` to skip downloading ~2GB of NVIDIA CUDA libraries since you are using Intel Iris Graphics.
+
 ## Version 0.7.2 (2026-04-11)
 
 ### New Features
