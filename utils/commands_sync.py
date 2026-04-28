@@ -43,7 +43,7 @@ async def sync_bot_commands(bot: Bot, user_id: int = None):
                 for cmd in db_commands
                 if cmd["is_visible"] and cmd["min_role"] == "PUBLIC"
             ]
-            await bot.set_bot_commands(public_commands, scope=BotCommandScopeDefault())
+            await bot.set_my_commands(public_commands, scope=BotCommandScopeDefault())
             logger.info(f"Synchronized global PUBLIC commands ({len(public_commands)} commands).")
 
             # 2. All Chat Administrators (Admins) - Show PUBLIC + USER + ADMIN
@@ -53,8 +53,9 @@ async def sync_bot_commands(bot: Bot, user_id: int = None):
                 for cmd in db_commands
                 if cmd["is_visible"] and ROLES_ORDER.get(cmd["min_role"], 0) <= admin_level
             ]
-            await bot.set_bot_commands(admin_commands, scope=BotCommandScopeAllChatAdministrators())
+            await bot.set_my_commands(admin_commands, scope=BotCommandScopeAllChatAdministrators())
             logger.info(f"Synchronized global ADMIN commands ({len(admin_commands)} commands).")
             
     except Exception as e:
         logger.error(f"Failed to synchronize bot commands: {e}", exc_info=True)
+
