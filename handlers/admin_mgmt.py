@@ -6,6 +6,7 @@ from database import (
     get_user, get_user_by_username, grant_user_access, 
     revoke_user_access, get_authorized_users_db, set_command_min_role
 )
+from utils.commands_sync import sync_bot_commands
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -44,6 +45,7 @@ async def cmd_grant(message: types.Message, command: CommandObject, user_role: s
         return
 
     grant_user_access(user["user_id"], role, username=username)
+    await sync_bot_commands(message.bot, user["user_id"])
     await message.answer(f"✅ User <b>{username}</b> is now authorized with role <b>{role}</b>.")
     logger.info(f"RBAC: User {message.from_user.id} ({user_role}) GRANTED {role} to {username} ({user['user_id']})")
 
@@ -71,6 +73,7 @@ async def cmd_revoke(message: types.Message, command: CommandObject, user_role: 
         return
 
     revoke_user_access(user["user_id"])
+    await sync_bot_commands(message.bot, user["user_id"])
     await message.answer(f"✅ User <b>{username}</b> access has been revoked.")
     logger.info(f"RBAC: User {message.from_user.id} ({user_role}) REVOKED access for {username} ({user['user_id']})")
 
@@ -162,6 +165,7 @@ async def cb_auth_set(callback: types.CallbackQuery, user_role: str):
         return
 
     grant_user_access(target_id, new_role)
+    await sync_bot_commands(callback.bot, target_id)
     logger.info(f"RBAC: User {callback.from_user.id} ({user_role}) changed {target_id} role to {new_role} via UI")
     
     await callback.answer(f"Success! Role set to {new_role}")
@@ -185,6 +189,7 @@ async def cb_auth_revoke(callback: types.CallbackQuery, user_role: str):
         return
 
     revoke_user_access(target_id)
+    await sync_bot_commands(callback.bot, target_id)
     logger.info(f"RBAC: User {callback.from_user.id} ({user_role}) REVOKED {target_id} via UI")
     
     await callback.answer("Access revoked.")

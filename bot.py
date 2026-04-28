@@ -8,6 +8,7 @@ from handlers import start, help, time, top, photo, group, auto_reply, weather, 
 from tools.cleanup_audio import cleanup_old_audio
 from tools.migrate_auth import migrate_auth_file
 from database import init_db
+from utils.commands_sync import sync_bot_commands
 from middlewares.command_logging import InteractionLoggingMiddleware
 from middlewares.auth import AuthMiddleware
 from middlewares.circle_location import CircleLocationMiddleware
@@ -32,6 +33,10 @@ async def main():
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode="HTML")
     )
+
+    # Synchronize bot commands from DB
+    await sync_bot_commands(bot)
+
     dp = Dispatcher()
 
     # Register middlewares
