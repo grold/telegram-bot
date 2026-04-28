@@ -1,0 +1,33 @@
+# Docker ignore file
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+include/
+bin/
+lib/
+share/
+pyvenv.cfg
+.env
+.git
+.gitignore
+.github
+.vscode
+.gemini
+.omx
+.superpowers
+.worktrees
+.pytest_cache
+audio/
+screenshots/
+tests/
+*.db
+*.log
+README.md
+VERSION.md
+docs/
+# Exclude tests and other non-essential folders for production

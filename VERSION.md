@@ -1,5 +1,25 @@
 # Version History
 
+## Version 0.7.7 (2026-04-26)
+
+### Improvements & Bug Fixes
+- **AI Dependencies Fix**: Pinned `optimum` (1.23.3), `optimum-intel` (1.19.0), and `openvino` (2024.6.0).
+    - This fixes both the `cannot import name 'merge_decoders' from 'optimum.onnx'` and the `No module named 'openvino.runtime'` errors by using a proven, stable stack for Whisper on Intel GPUs.
+
+## Version 0.7.6 (2026-04-26)
+
+### Improvements & Bug Fixes
+- **Hardware Compatibility Fix**: Switched to **Python 3.12** and downgraded `numpy` (to 1.26.4) and `timezonefinder` (to 7.0.2).
+    - This allows the use of **pre-compiled binaries (wheels)** for NumPy 1.x, completely skipping the need for a C compiler during build and fixing the `X86_V2` error on older CPUs.
+
+## Version 0.7.5 (2026-04-26)
+
+### New Features & Improvements
+- **Coolify Deployment Setup**: Added a `Dockerfile` and `.dockerignore` for deploying to Coolify.
+- **Finalized Optimization Summary**:
+    - **Python 3.13**: Switched back from 3.14 to ensure pre-compiled binaries (wheels) are available for most libraries, significantly speeding up the build.
+    - **CPU-Only Torch**: Explicitly configured `uv` to use the CPU-only PyTorch index and updated `uv.lock`. This successfully removed all NVIDIA CUDA and Triton dependencies from the dependency tree, saving ~2.5GB of downloads.
+
 ## Version 0.7.2 (2026-04-11)
 
 ### New Features

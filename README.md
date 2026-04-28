@@ -100,6 +100,22 @@ uv run tools/migrate_auth.py
    - Create a `photos/` directory and add `.jpg` or `.png` files to use the `/photo` command.
    - Create a `cities.txt` file (one city per line) to enable inline search autocompletion.
 
+## Deployment (Coolify)
+
+This bot is optimized for deployment via [Coolify](https://coolify.io/) using a multi-stage Docker build.
+
+### Build Optimizations
+The provided `Dockerfile` includes the following optimizations:
+- **Python 3.13**: Uses the official `uv` image with Python 3.13 to leverage pre-compiled binaries (wheels), significantly reducing build times.
+- **CPU-Only Torch**: Optimized for environments without NVIDIA GPUs (like Intel Iris Graphics) by configuring `uv` to use the CPU-only index. The `uv.lock` is pinned to `+cpu` versions, eliminating ~2.5GB of NVIDIA CUDA and Triton dependencies.
+- **Multi-Stage Build**: Utilizes a builder stage to compile dependencies and a slim runner stage for production, resulting in a lightweight and secure final image.
+
+### Setup Steps
+1. **Source**: Connect your Git repository.
+2. **Build Pack**: Select **Dockerfile**.
+3. **Storage**: Map a persistent volume (e.g., `bot-data`) to `/app/data` to preserve the database and audio files.
+4. **Environment Variables**: Configure `BOT_TOKEN`, `DATABASE_PATH`, `AUDIO_FOLDER`, and `SCREENSHOTS_DIR` (set paths to point to `/app/data/...`).
+
 ## Tools
 
 The repository includes a `tools/` directory for useful utility scripts.
