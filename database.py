@@ -24,7 +24,9 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS command_permissions (
             command TEXT PRIMARY KEY,
-            min_role TEXT NOT NULL
+            min_role TEXT NOT NULL,
+            description TEXT,
+            is_visible BOOLEAN DEFAULT 1
         )
     ''')
     cursor.execute('''
@@ -48,6 +50,16 @@ def init_db():
         )
     ''')
     
+    # Simple migration: Add description and is_visible to command_permissions
+    try:
+        cursor.execute('ALTER TABLE command_permissions ADD COLUMN description TEXT')
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute('ALTER TABLE command_permissions ADD COLUMN is_visible BOOLEAN DEFAULT 1')
+    except sqlite3.OperationalError:
+        pass
+
     # Simple migration: Add role and is_authorized if they don't exist
     try:
         cursor.execute('ALTER TABLE users ADD COLUMN role TEXT DEFAULT "USER"')
@@ -210,6 +222,53 @@ def set_command_min_role(command, min_role):
         VALUES (?, ?)
         ON CONFLICT(command) DO UPDATE SET min_role=excluded.min_role
     ''', (command, min_role))
+    conn.commit()
+    conn.close()
+
+def get_all_commands():
+    """Retrieves all commands and their details."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM command_permissions')
+    commands = cursor.fetchall()
+    conn.close()
+    return commands
+
+def update_command_details(command, min_role=None, description=None, is_visible=None):
+    """Updates or inserts command details."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Check if exists
+    cursor.execute('SELECT * FROM command_permissions WHERE command = ?', (command,))
+    row = cursor.fetchone()
+    
+    if row:
+        # Update existing
+        updates = []
+        params = []
+        if min_role is not None:
+            updates.append("min_role = ?")
+            params.append(min_role)
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+        if is_visible is not None:
+            updates.append("is_visible = ?")
+            params.append(is_visible)
+            
+        if updates:
+            sql = f"UPDATE command_permissions SET {', '.join(updates)} WHERE command = ?"
+            params.append(command)
+            cursor.execute(sql, params)
+    else:
+        # Insert new
+        cursor.execute('''
+            INSERT INTO command_permissions (command, min_role, description, is_visible)
+            VALUES (?, ?, ?, ?)
+        ''', (command, min_role or 'PUBLIC', description, 1 if is_visible is None else is_visible))
+        
     conn.commit()
     conn.close()
 
