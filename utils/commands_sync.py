@@ -32,8 +32,8 @@ async def sync_bot_commands(bot: Bot, user_id: int = None):
                 if cmd["is_visible"] and ROLES_ORDER.get(cmd["min_role"], 0) <= user_level
             ]
             
-            # Telegram Bot API: set_bot_commands with empty list clears commands for the scope
-            await bot.set_bot_commands(visible_commands, scope=BotCommandScopeChat(chat_id=user_id))
+            # Telegram Bot API: set_my_commands with empty list clears commands for the scope
+            await bot.set_my_commands(visible_commands, scope=BotCommandScopeChat(chat_id=user_id))
             logger.info(f"Synchronized commands for user {user_id} (Role: {user_role}, Count: {len(visible_commands)})")
         else:
             # Global scopes

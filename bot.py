@@ -34,9 +34,15 @@ async def main():
         default=DefaultBotProperties(parse_mode="HTML")
     )
 
-    # Synchronize bot commands from DB
+    # Synchronize bot commands from DB (Global Scopes)
     await sync_bot_commands(bot)
-
+    
+    # Synchronize bot commands for all authorized users (Private Scopes)
+    from database import get_authorized_users_db
+    authorized_users = get_authorized_users_db()
+    for user in authorized_users:
+        await sync_bot_commands(bot, user["user_id"])
+    
     dp = Dispatcher()
 
     # Register middlewares
